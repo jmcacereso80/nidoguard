@@ -79,6 +79,15 @@ class ClaudePlateReader:
         self.name = model or s.plate_model
         self.effort = effort
 
+    def _create(self, kwargs: dict):
+        # Algunos modelos (p. ej. Sonnet) no aceptan forzar la herramienta: se pide en modo automatico.
+        try:
+            return self.client.messages.create(**kwargs)
+        except Exception as e:
+            if "tool_choice" not in str(e):
+                raise
+            return self.client.messages.create(**{**kwargs, "tool_choice": {"type": "auto"}})
+
     def read(self, image: bytes, content_type: str, extra: list[tuple[bytes, str, str]] | None = None) -> PlateExtraction:
         tool = {"name": "registrar_placa", "description": "Registra los datos leidos de la placa",
                 "input_schema": PlateExtraction.model_json_schema()}
@@ -99,12 +108,12 @@ class ClaudePlateReader:
         if self.effort:
             kwargs["extra_body"] = {"output_config": {"effort": self.effort}}
         try:
-            resp = self.client.messages.create(**kwargs)
+            resp = self._create(kwargs)
         except Exception:
             if not self.effort:
                 raise
             kwargs.pop("extra_body")
-            resp = self.client.messages.create(**kwargs)
+            resp = self._create(kwargs)
         block = next(b for b in resp.content if b.type == "tool_use")
         return PlateExtraction.model_validate(block.input)
 

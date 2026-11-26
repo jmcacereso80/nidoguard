@@ -26,7 +26,11 @@ def read_with_fallback(image: bytes, content_type: str, reader: PlateReader, fal
                        extra: list[tuple[bytes, str, str]] | None = None):
     result, used = reader.read(image, content_type, extra), reader.name
     if fallback is not None and _needs_fallback(result):
-        better = fallback.read(image, content_type, extra)
+        try:
+            better = fallback.read(image, content_type, extra)
+        except Exception:  # si el respaldo falla, nos quedamos con lo que ya leyo el principal
+            log.exception("fallo el modelo de respaldo; se conserva la lectura principal")
+            return result, used
         if better.legible:
             result, used = better, fallback.name
     return result, used
