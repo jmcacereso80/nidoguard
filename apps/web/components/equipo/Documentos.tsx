@@ -36,9 +36,10 @@ export function Documentos({ id }: { id: string }) {
             <div className="g flex items-center gap-3 rounded-[22px] p-3.5">
               <span className="icon-tile"><Icon name="file" size={20} /></span>
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-extrabold">Lo buscamos por ti</p>
-                <p className="text-[13px] text-muted">Con la marca y el modelo confirmados, NidoGuard busca el manual de tu equipo y lo guarda aquí.</p>
+                <p className="text-[15px] font-extrabold">Buscando el manual de tu modelo</p>
+                <p className="text-[13px] text-muted">NidoGuard lo busca por tu marca y modelo. No tienes que subirlo.</p>
               </div>
+              <span className="chip"><Icon name="clock" size={13} stroke={2.4} />Buscando</span>
             </div>
           )}
           {manuals.map((m) => (
