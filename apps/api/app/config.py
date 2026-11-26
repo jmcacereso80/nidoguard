@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     plate_fallback_model: str = "claude-sonnet-5-5"
     plate_min_confidence: float = 0.7
 
+    apify_maps_actor: str = "compass~crawler-google-places"  # el CLI confirma el actor y su costo antes del piloto
+    provider_source: str = "apify"  # apify | fake
+    provider_ttl_days: int = 90
     geocoder: str = "nominatim"  # nominatim | fake
     geocoder_user_agent: str = "NidoGuard/1.0 (contacto@nidoguard.com)"
 

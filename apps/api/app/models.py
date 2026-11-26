@@ -310,3 +310,46 @@ class CareTemplate(Base):
     planner: Mapped[str | None] = mapped_column(String(80))
     uses: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = now()
+
+
+class ServiceProvider(Base):
+    """Tecnico del directorio compartido (se busca una vez y se reutiliza). No pertenece a ningun hogar.
+    Teléfono, dirección y sitio son solo de uso interno: nunca se entregan a las personas usuarias."""
+    __tablename__ = "service_providers"
+    id: Mapped[uuid.UUID] = pk()
+    source: Mapped[str] = mapped_column(String(20))  # maps | manual | fake
+    source_id: Mapped[str] = mapped_column(String(200), unique=True)
+    name: Mapped[str] = mapped_column(String(300))
+    phone_e164: Mapped[str | None] = mapped_column(String(20), index=True)
+    website: Mapped[str | None] = mapped_column(String(500))
+    address: Mapped[str | None] = mapped_column(String(500))
+    city: Mapped[str | None] = mapped_column(String(120), index=True)
+    colony: Mapped[str | None] = mapped_column(String(120))
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+    specialties: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    brands: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    rating: Mapped[float | None] = mapped_column(Float)
+    reviews: Mapped[int | None] = mapped_column(Integer)
+    hours: Mapped[dict | None] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(20), default="activo")  # activo | descartado
+    do_not_call: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    answered: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    quotes_given: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    last_called_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    scraped_at: Mapped[datetime] = now()
+
+
+class ProviderSearch(Base):
+    """Cada busqueda en el mapa por ciudad y especialidad. La clave unica evita repetirla (y volver a pagar)."""
+    __tablename__ = "provider_searches"
+    id: Mapped[uuid.UUID] = pk()
+    key: Mapped[str] = mapped_column(String(200), unique=True)  # ciudad|especialidad
+    city: Mapped[str] = mapped_column(String(120))
+    specialty: Mapped[str] = mapped_column(String(60))
+    status: Mapped[str] = mapped_column(String(20))  # buscando | lista | error
+    results: Mapped[int] = mapped_column(Integer, default=0)
+    new_providers: Mapped[int] = mapped_column(Integer, default=0)
+    detail: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = now()
