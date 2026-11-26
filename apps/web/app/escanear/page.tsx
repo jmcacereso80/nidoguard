@@ -24,6 +24,7 @@ export default function Escanear() {
   const router = useRouter();
   const [err, setErr] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [kitPath, setKitPath] = useState<string | null>(null);
 
   // Solo muestra la camara. No decodifica en bucle: la lectura es al tocar el boton.
   useEffect(() => {
@@ -75,6 +76,8 @@ export default function Escanear() {
       setErr("Ese código no es de NidoGuard.");
       return;
     }
+    // Una hoja de kit no es una etiqueta de equipo: pedimos confirmacion antes de activarla.
+    if (path.startsWith("/k/")) { setKitPath(path); return; }
     router.push(path);
   }
 
@@ -87,6 +90,16 @@ export default function Escanear() {
       <button className="btn btn-copper mt-4 w-full" onClick={leerCodigo} disabled={!ready}>
         {ready ? "Leer código" : "Preparando cámara…"}
       </button>
+      {kitPath && (
+        <div className="gd mt-4 rounded-[26px] p-5 text-white">
+          <p className="text-lg font-extrabold">Esto es una hoja de kit, no un equipo</p>
+          <p className="mt-1 text-sm opacity-90">Un kit se activa una sola vez y te da sus etiquetas. ¿Quieres activarlo ahora?</p>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button className="btn btn-copper w-full" onClick={() => router.push(kitPath)}>Activar kit</button>
+            <button className="btn btn-ghost w-full" onClick={() => setKitPath(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
       <ErrorNote text={err} />
     </Shell>
   );
