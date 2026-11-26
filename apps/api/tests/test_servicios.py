@@ -185,8 +185,11 @@ def test_equipo_pequeno_va_por_el_fabricante(caso, db):
     a = equipo(c, db, tokens[0], "Licuadora Oster", "Oster", "Licuadora")
     r = pedir(c, a, "El motor no gira y la jarra gotea.")
     assert r["route"] == "fabricante"
-    assert c.post(f"/service-requests/{r['id']}/start", json={"consent": True}).status_code == 200
+    assert r["manufacturer"]["brand"] == "Oster" and r["manufacturer"]["phone"] is None
+    assert c.post(f"/service-requests/{r['id']}/start", json={"consent": True}).status_code == 422  # sin teléfono
+    assert c.post(f"/service-requests/{r['id']}/start", json={"consent": True, "phone": "55 1234 5678"}).status_code == 200
     s = c.get(f"/service-requests/{r['id']}").json()
+    assert s["manufacturer"]["phone"] == "+525512345678"
     ap = s["appointment"]
     assert s["status"] == "agendada" and ap["kind"] == "fabricante" and ap["location_type"] == "centro"
     assert ap["folio"].startswith("OS-") and ap["center_address"] and ap["starts_at"] and ap["bring"]
@@ -199,7 +202,7 @@ def test_fabricante_que_no_acepta_y_la_persona_registra_su_cita(caso, db):
     con_direccion(c)
     a = equipo(c, db, tokens[0], "Licuadora", "Marca Sin Linea", "Licuadora")
     r = pedir(c, a, "No enciende por ningún lado")
-    c.post(f"/service-requests/{r['id']}/start", json={"consent": True})
+    c.post(f"/service-requests/{r['id']}/start", json={"consent": True, "phone": "5512345678"})
     assert c.get(f"/service-requests/{r['id']}").json()["status"] == "sin_cita"
     out = c.post(f"/service-requests/{r['id']}/register", json={"date": "2026-12-04", "window": "manana", "folio": "ABC123"}).json()
     assert out["status"] == "agendada" and out["appointment"]["registered_by_user"] is True and out["appointment"]["folio"] == "ABC123"

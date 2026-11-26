@@ -11,10 +11,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
-from ..models import (AssetEvent, CareTask, Consent, EquipmentAsset, Property, ServiceAppointment, ServiceCall, ServiceProvider,
+from ..models import (User, AssetEvent, CareTask, Consent, EquipmentAsset, Property, ServiceAppointment, ServiceCall, ServiceProvider,
                       ServiceQuote, ServiceRequest, Warranty)
 from . import safety
-from .providers import SPECIALTIES, candidates, ensure_directory, get_source, specialty_for
+from .providers import SPECIALTIES, candidates, ensure_directory, get_source, specialty_for, to_e164_mx
 from .scope import ScopeWriter
 from .service_mode import service_mode
 from .voice import CallContext, VoiceCaller
@@ -91,7 +91,7 @@ def _consent(db: Session, user, org, req, type_: str):
     db.add(Consent(user_id=user.id, organization_id=org.id, request_id=req.id, type=type_, text_version=CONSENT_VERSION))
 
 
-def start(db: Session, req: ServiceRequest, user, org, consent: bool, voice: VoiceCaller) -> ServiceRequest:
+def start(db: Session, req: ServiceRequest, user, org, consent: bool, voice: VoiceCaller, phone: str | None = None) -> ServiceRequest:
     if req.status != "borrador":
         raise HTTPException(409, "Esta solicitud ya está en marcha.")
     if req.safety_alert and not req.safety_acknowledged:
@@ -101,7 +101,7 @@ def start(db: Session, req: ServiceRequest, user, org, consent: bool, voice: Voi
     if not (req.scope_text or "").strip():
         raise HTTPException(422, "Falta decir qué vamos a cotizar.")
     if req.route == "fabricante":
-        return _start_manufacturer(db, req, user, org, voice)
+        return _start_manufacturer(db, req, user, org, voice, phone)
     prop = db.get(Property, req.property_id) if req.property_id else None
     if not prop or prop.lat is None or prop.lng is None:
         raise HTTPException(422, "Agrega la dirección de tu hogar para buscar técnicos cercanos.")
@@ -145,7 +145,10 @@ def expand(db: Session, req: ServiceRequest, voice: VoiceCaller) -> ServiceReque
     return req
 
 
-def _start_manufacturer(db: Session, req: ServiceRequest, user, org, voice: VoiceCaller) -> ServiceRequest:
+def _start_manufacturer(db: Session, req: ServiceRequest, user, org, voice: VoiceCaller, phone: str | None) -> ServiceRequest:
+    e164 = to_e164_mx(phone)
+    if not e164:
+        raise HTTPException(422, "Escribe tu teléfono a 10 dígitos: el fabricante lo pide para agendar.")
     if not req.asset_id:
         raise HTTPException(422, "Para agendar con el fabricante necesitamos el equipo en tu lista.")
     prop = db.get(Property, req.property_id) if req.property_id else None
@@ -153,6 +156,7 @@ def _start_manufacturer(db: Session, req: ServiceRequest, user, org, voice: Voic
         raise HTTPException(422, "Agrega la dirección de tu hogar: el fabricante la pide para agendar.")
     a = db.get(EquipmentAsset, req.asset_id)
     _consent(db, user, org, req, "compartir_datos_con_fabricante")
+    req.contact_phone = e164
     req.status, req.started_at = "buscando", utcnow()
     call = ServiceCall(request_id=req.id, purpose="fabricante", label="Fabricante")
     db.add(call)
@@ -358,6 +362,16 @@ def appointment_out(db: Session, ap: ServiceAppointment) -> dict:
     return out
 
 
+def _manufacturer_out(db: Session, req: ServiceRequest, prop: Property | None) -> dict:
+    """Los datos propios de la persona y del equipo que se le dan al fabricante (los ve ella antes de autorizar)."""
+    a = db.get(EquipmentAsset, req.asset_id) if req.asset_id else None
+    u = db.get(User, req.created_by) if req.created_by else None
+    w = db.scalar(select(Warranty).where(Warranty.asset_id == a.id)) if a else None
+    return {"brand": a.brand if a else None, "model": a.model if a else None, "serial": a.serial if a else None,
+            "holder_name": u.name if u else None, "phone": req.contact_phone, "address": prop.address if prop else None,
+            "warranty_ends_on": w.ends_on.isoformat() if w else None}
+
+
 def request_out(db: Session, req: ServiceRequest, detail: bool = True) -> dict:
     quotes = sorted(db.scalars(select(ServiceQuote).where(ServiceQuote.request_id == req.id)),
                     key=lambda q: int(q.label.split()[-1]))
@@ -380,6 +394,7 @@ def request_out(db: Session, req: ServiceRequest, detail: bool = True) -> dict:
         "address_complete": bool(prop and prop.lat is not None), "radius_km": req.radius_km, "target_quotes": req.target_quotes,
         "created_at": req.created_at.isoformat(), "quote_count": len(quotes),
         "appointment": appointment_out(db, ap) if ap else None,
+        "manufacturer": _manufacturer_out(db, req, prop) if req.route == "fabricante" else None,
     }
     if detail:
         tags = _tags(quotes)

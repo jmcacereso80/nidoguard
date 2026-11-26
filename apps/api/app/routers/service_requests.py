@@ -31,6 +31,7 @@ class ScopeIn(BaseModel):
 
 class StartIn(BaseModel):
     consent: bool = False
+    phone: str | None = Field(default=None, max_length=30)  # solo para la ruta del fabricante
 
 
 class ScheduleIn(BaseModel):
@@ -117,7 +118,7 @@ def ack_safety(request_id: uuid.UUID, org: Organization = Depends(current_org), 
 def start(request_id: uuid.UUID, body: StartIn, user: User = Depends(current_user), org: Organization = Depends(current_org),
           db: Session = Depends(get_db), voice: VoiceCaller = Depends(get_voice)):
     r = _req(db, org, request_id, advance=False)
-    F.start(db, r, user, org, body.consent, voice)
+    F.start(db, r, user, org, body.consent, voice, body.phone)
     return F.request_out(db, r)
 
 

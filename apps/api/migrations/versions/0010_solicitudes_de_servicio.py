@@ -36,6 +36,7 @@ def upgrade() -> None:
         sa.Column('urgency', sa.String(12), nullable=False, server_default='semana'),
         sa.Column('safety_alert', sa.String(20)),
         sa.Column('safety_acknowledged', sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column('contact_phone', sa.String(20)),
         sa.Column('status', sa.String(14), nullable=False, server_default='borrador'),
         sa.Column('zone_city', sa.String(120)), sa.Column('zone_colony', sa.String(120)),
         sa.Column('lat', sa.Float()), sa.Column('lng', sa.Float()),

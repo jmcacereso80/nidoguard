@@ -376,6 +376,7 @@ class ServiceRequest(Base):
     urgency: Mapped[str] = mapped_column(String(12), default="semana")  # hoy | semana | sin_prisa
     safety_alert: Mapped[str | None] = mapped_column(String(20))  # gas | chispas | humo | quemado | agua_electricidad
     safety_acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    contact_phone: Mapped[str | None] = mapped_column(String(20))  # solo para la ruta del fabricante, con consentimiento
     status: Mapped[str] = mapped_column(String(14), default="borrador", index=True)
     zone_city: Mapped[str | None] = mapped_column(String(120))
     zone_colony: Mapped[str | None] = mapped_column(String(120))
