@@ -22,6 +22,8 @@ export function useApi() {
       try { msg = (await res.json()).detail ?? msg; } catch {}
       throw new ApiError(res.status, typeof msg === "string" ? msg : "Revisa los datos e inténtalo de nuevo.");
     }
+    // 204 (sin contenido, p. ej. al eliminar) no tiene JSON que leer.
+    if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   }, [getToken]);
 }
