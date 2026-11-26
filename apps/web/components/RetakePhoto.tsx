@@ -52,8 +52,8 @@ export function RetakePhoto({ assetId, onDone, kind = "placa" }: { assetId: stri
       <input ref={pickRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = ""; }} />
       {phase === "idle" || phase === "error" ? (
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" className="btn btn-copper w-full" disabled={busy} onClick={() => camRef.current?.click()}>Tomar foto</button>
-          <button type="button" className="btn btn-ghost w-full" disabled={busy} onClick={() => pickRef.current?.click()}>Subir foto</button>
+          <button type="button" className="btn btn-copper w-full" disabled={busy} onClick={() => camRef.current?.click()}>{kind === "equipo" ? "Tomar foto del equipo" : "Tomar foto"}</button>
+          <button type="button" className="btn btn-ghost w-full" disabled={busy} onClick={() => pickRef.current?.click()}>{kind === "equipo" ? "Subir foto del equipo" : "Subir foto"}</button>
         </div>
       ) : null}
       {phase === "subiendo" && (

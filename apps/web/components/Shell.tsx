@@ -16,9 +16,9 @@ export function Shell({ title, subtitle, back, nav, big, right, children }: {
         <h1 className={`flex-1 font-extrabold leading-tight tracking-tight text-ink ${big ? "pt-3 text-[34px] tracking-[-0.8px]" : "text-[26px]"}`}>{title ?? "NidoGuard"}</h1>
         {right}
       </header>
+      <p className="-mt-3 mb-3 text-[10px] tracking-wide text-muted/80">NidoGuard · {process.env.NEXT_PUBLIC_APP_VERSION ?? "sin versión"}</p>
       {subtitle && <p className="mb-4 mt-1 text-sm text-muted">{subtitle}</p>}
       {children}
-      <p className="pointer-events-none fixed inset-x-0 bottom-0.5 text-center text-[9px] tracking-wide text-muted/70">NidoGuard · {process.env.NEXT_PUBLIC_APP_VERSION ?? "sin versión"}</p>
       {nav && <BottomNav active={nav} />}
     </main>
   );

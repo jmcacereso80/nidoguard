@@ -212,20 +212,18 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
             <button type="button" className="btn btn-ghost !min-h-11 w-full !text-[15px]" onClick={() => pickRef.current?.click()}>Subir foto</button>
           </div>
         </div>
-        {file && (
-          <div className="g rounded-[26px] p-3.5">
+        <div className="g rounded-[26px] p-3.5">
             <div className="flex items-center gap-3">
               <span className="icon-tile !h-12 !w-12 !rounded-2xl"><Icon name="camera" size={24} /></span>
-              <span className="min-w-0 flex-1"><span className="block text-[15px] font-extrabold">Foto del equipo (opcional)</span><span className="block text-[12.5px] leading-tight text-muted">{productFile ? "Foto del equipo lista." : "Si la placa no dice qué equipo es, una foto del equipo completo nos ayuda a identificarlo."}</span></span>
+              <span className="min-w-0 flex-1"><span className="block text-[15px] font-extrabold">Foto del equipo (opcional)</span><span className="block text-[12.5px] leading-tight text-muted">{productFile ? "Foto del equipo lista." : file ? "Si la placa no dice qué equipo es, una foto del equipo completo nos ayuda a identificarlo." : "Primero toma la foto de la placa."}</span></span>
             </div>
             <input ref={prodCamRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => setProductFile(e.target.files?.[0] ?? null)} />
             <input ref={prodPickRef} type="file" accept="image/*" hidden onChange={(e) => setProductFile(e.target.files?.[0] ?? null)} />
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button type="button" className="btn btn-ghost !min-h-11 w-full !text-[15px]" onClick={() => prodCamRef.current?.click()}>Tomar foto del equipo</button>
-              <button type="button" className="btn btn-ghost !min-h-11 w-full !text-[15px]" onClick={() => prodPickRef.current?.click()}>Subir foto del equipo</button>
+              <button type="button" className="btn btn-ghost !min-h-11 w-full !text-[15px]" disabled={!file} onClick={() => prodCamRef.current?.click()}>Tomar foto del equipo</button>
+              <button type="button" className="btn btn-ghost !min-h-11 w-full !text-[15px]" disabled={!file} onClick={() => prodPickRef.current?.click()}>Subir foto del equipo</button>
             </div>
-          </div>
-        )}
+        </div>
         {!file && (
           <div>
             <label htmlFor="n" className="mb-1.5 block text-[13px] font-bold text-muted">Nombre</label>

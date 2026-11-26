@@ -121,11 +121,11 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
               No pudimos saber qué equipo es. Escríbelo en “Corregir datos” para poder confirmarlo.
             </p>
           )}
-
-          {a.status === "necesita_foto" && <RetakePhoto assetId={id} onDone={() => refresh()} />}
           {(a.status === "faltan_datos" || asset.extra?.nombre_pendiente) && (
             <RetakePhoto kind="equipo" assetId={id} onDone={() => refresh()} />
           )}
+
+          {a.status === "necesita_foto" && <RetakePhoto assetId={id} onDone={() => refresh()} />}
 
           {a.status === "por_confirmar" && a.reading && (
             <Card className="flex flex-col gap-3">
