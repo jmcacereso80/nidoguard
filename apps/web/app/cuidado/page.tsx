@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell, ErrorNote } from "@/components/Shell";
+import { QuoteButton } from "@/components/servicios/QuoteButton";
 import { Icon, equipmentIcon } from "@/components/Icon";
 import { useApi } from "@/lib/api";
 import {
@@ -125,6 +126,7 @@ export default function Cuidado() {
                   <Icon name={t.source === "manual" || t.confirmed ? "check" : "sparkle"} size={14} stroke={2.2} />
                   {t.confirmed && t.source === "sugerencia" ? "Confirmado por ti" : SOURCE_LABEL[t.source]}</p>
                 {paso && <p className="mt-1 text-[12.5px] leading-snug text-muted">{paso}</p>}
+                {t.needs_technician && <div className="mt-3"><QuoteButton taskId={t.id} compact /></div>}
                 <div className="mt-3 flex gap-2">
                   <button type="button" disabled={ocupado} className="btn !min-h-10 flex-1 !px-3 !text-[13.5px]"
                     onClick={() => accion.mutate({ path: `/care/${t.id}/done`, ok: "Listo, lo anotamos en el historial." })}><Icon name="check" size={16} stroke={2.4} />Marcar como realizado</button>

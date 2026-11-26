@@ -128,6 +128,8 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
             <Icon name={equipmentIcon(a)} size={72} stroke={1.3} />
           </div>
           <p className="-mt-1 text-sm text-muted">{info.detail}</p>
+          <Link href={`/servicios/nuevo?equipo=${id}`} className="g flex min-h-[52px] items-center gap-3 rounded-[22px] px-4 text-[14.5px] font-extrabold text-navy">
+            <Icon name="wrench" size={19} />Algo no funciona con este equipo<span className="ml-auto"><Icon name="chevron" size={18} /></span></Link>
           {asset.extra?.nombre_pendiente && (
             <p className="rounded-2xl bg-white/70 px-4 py-3 text-sm font-semibold text-[var(--ng-warn)]">
               No pudimos saber qué equipo es. Escríbelo en “Corregir datos” para poder confirmarlo.

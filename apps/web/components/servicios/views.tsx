@@ -1,0 +1,388 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Icon } from "@/components/Icon";
+import { ErrorNote } from "@/components/Shell";
+import {
+  Actions, Callout, Chip, ConsentCheck, Hero, Hr, KV, Label, NoCobro, Note, Steps, Summary, TextLink, Timeline,
+} from "./ui";
+import {
+  NO_COBRO_FABRICANTE, Quote, ServiceRequest, Sort, TAG_LABEL, URGENCY_LABEL, callText, distanceLabel, hourRange, icsLink, invoiceLabel, longDay,
+  mapsLink, money, priceLabel, priceNote, progressOf, slotChip, sortQuotes, warrantyLabel, shortDay,
+} from "@/lib/servicios";
+
+export type Act = (path: string, body?: unknown) => Promise<unknown>;
+type P = { r: ServiceRequest; act: Act; busy: boolean; err: string | null };
+const Btn = ({ onClick, disabled, children, ghost, danger }: { onClick?: () => void; disabled?: boolean; children: React.ReactNode; ghost?: boolean; danger?: boolean }) => (
+  <button type="button" onClick={onClick} disabled={disabled} className={`btn ${ghost ? "btn-ghost" : ""} ${danger ? "!text-[var(--ng-danger)]" : ""}`}>{children}</button>
+);
+
+// ---------------------------------------------------------------- Antes de empezar
+export function Alerta({ r, act, busy, err }: P) {
+  const s = r.safety!;
+  return (
+    <div>
+      <div className="mt-4 flex flex-col items-center gap-2.5 rounded-[30px] px-5 py-6 text-center" role="alert" style={{ background: "rgba(143,47,47,.10)", border: "1px solid rgba(143,47,47,.25)" }}>
+        <span aria-hidden="true" className="grid h-16 w-16 place-items-center rounded-full bg-[#8F2F2F] text-white"><Icon name="alert" size={30} stroke={2.2} /></span>
+        <p className="text-[20px] font-extrabold text-[#5E1F1F]">{s.title}</p>
+        <p className="text-[14.5px] leading-relaxed text-[#5E1F1F]">{s.advice}</p>
+      </div>
+      <Actions>
+        <a href="tel:911" className="btn !bg-[#8F2F2F] !bg-none text-white"><Icon name="phone" size={20} stroke={2.2} />Llamar al 911</a>
+        <Btn ghost disabled={busy} onClick={() => act("/service-requests/{id}/ack-safety")}>Ya estoy a salvo, continuar</Btn>
+      </Actions>
+      <ErrorNote text={err} />
+      <Note>NidoGuard no sustituye a los servicios de emergencia. Cuando estés a salvo, buscamos un técnico.</Note>
+    </div>
+  );
+}
+
+export function Confirmar({ r, act, busy, err }: P) {
+  const [scope, setScope] = useState(r.scope_text ?? "");
+  const [ok, setOk] = useState(true);
+  useEffect(() => setScope(r.scope_text ?? ""), [r.scope_text]);
+  const guardar = () => { if (scope.trim() && scope.trim() !== r.scope_text) act("/service-requests/{id}/scope", { scope_text: scope.trim() }); };
+  const falla = r.origin === "libre";
+  const puedeFabricante = !!r.asset_id;
+  return (
+    <div>
+      <div className="g mt-3 rounded-[26px] p-4">
+        <p className="flex items-center gap-1.5 text-[12px] font-bold text-[#8F5A1F]"><Icon name="sparkle" size={14} stroke={2.2} />Así lo entendimos</p>
+        <label className="sr-only" htmlFor="alcance">Servicio a cotizar</label>
+        <textarea id="alcance" value={scope} onChange={(e) => setScope(e.target.value)} onBlur={guardar} rows={4}
+          className="mt-2 block w-full resize-none rounded-[18px] border border-navy/15 bg-white/70 px-3.5 py-3 text-[15px] font-bold leading-snug text-ink" />
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          <Chip icon="wrench">{r.equipment_label}</Chip><Chip icon="home">Visita a domicilio</Chip><Chip tone="gray" icon="clock">Urgencia: {URGENCY_LABEL[r.urgency].toLowerCase()}</Chip>
+        </div>
+      </div>
+      {r.warranty && <div className="mt-3"><Callout icon="shieldok"><b>Tu garantía sigue vigente ({r.warranty.days_left} días).</b> Pregunta primero si este trabajo está cubierto.</Callout></div>}
+      {falla && <div className="mt-3"><Callout>Para una falla, el técnico no puede dar el precio final por teléfono. Te diremos lo que cobra por revisar y un precio aproximado de la reparación.</Callout></div>}
+      <Label>Dónde</Label>
+      {r.address_complete ? (
+        <div className="g flex items-center gap-3 rounded-[22px] px-3.5 py-2.5">
+          <span className="text-navy"><Icon name="pin" size={20} /></span>
+          <div className="min-w-0 flex-1"><p className="text-[14px] font-extrabold">{r.zone}</p><p className="text-[12.5px] text-muted">Técnicos a menos de {r.radius_km} km</p></div>
+          <Link href={`/hogar/direccion?volver=/servicios/${r.id}`} className="flex min-h-11 items-center pl-2 text-[13px] font-extrabold text-navy">Cambiar</Link>
+        </div>
+      ) : (
+        <Callout icon="pin">Para buscar técnicos cercanos necesitamos la dirección de tu hogar. <Link href={`/hogar/direccion?volver=/servicios/${r.id}`} className="font-extrabold underline">Agregar mi dirección</Link></Callout>
+      )}
+      <Steps items={[["phone", "Un asistente virtual llama a técnicos cercanos por ti."], ["list", "Te mostramos hasta 5 cotizaciones con precio y fecha."], ["lock", "Los técnicos no ven tu dirección ni tu teléfono hasta que tú elijas."]]} />
+      <div className="mt-4"><NoCobro /></div>
+      <ConsentCheck checked={ok} onChange={setOk}>Autorizo que NidoGuard llame de mi parte. Las llamadas se graban.</ConsentCheck>
+      <ErrorNote text={err} />
+      <Actions>
+        <Btn disabled={busy || !ok || !r.address_complete} onClick={() => act("/service-requests/{id}/start", { consent: ok })}><Icon name="phone" size={19} stroke={2.2} />Buscar cotizaciones</Btn>
+        {puedeFabricante && <TextLink onClick={() => act("/service-requests/{id}/scope", { route: "fabricante" })}>Prefiero llevarlo al fabricante</TextLink>}
+        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar solicitud</TextLink>
+      </Actions>
+    </div>
+  );
+}
+
+export function FabricanteDatos({ r, act, busy, err }: P) {
+  const m = r.manufacturer!;
+  const [ok, setOk] = useState(true);
+  const [phone, setPhone] = useState("");
+  const dato = (icon: string, k: string, v: string | null) => v ? <><KV icon={icon} k={k} v={v} /><Hr /></> : null;
+  return (
+    <div>
+      <div className="g mt-3 flex items-start gap-3 rounded-[26px] p-3.5">
+        <span className="icon-tile" style={{ background: "#F1E2D3" }}><Icon name="building" size={20} /></span>
+        <p className="flex-1 text-[13.5px] leading-snug"><b>Este equipo se lleva a un centro de servicio.</b> Llamamos al fabricante, agendamos tu cita y te decimos para cuándo quedó.</p>
+      </div>
+      {r.warranty && <div className="mt-2.5"><Chip tone="cobre" icon="shieldok">Garantía vigente · {r.warranty.days_left} días</Chip></div>}
+      <Label>Qué pasa</Label>
+      <div className="g rounded-[22px] px-4 py-3 text-[14px] font-semibold leading-snug">{r.symptom ?? r.scope_text}</div>
+      <Label>Qué le diremos al fabricante</Label>
+      <div className="g rounded-[26px] px-4 py-1">
+        {dato("user", "Tu nombre", m.holder_name)}
+        {dato("pin", "Tu dirección", m.address)}
+        {dato("doc", "Marca y modelo", [m.brand, m.model].filter(Boolean).join(" ") || null)}
+        {dato("tag", "Número de serie", m.serial)}
+        {dato("shieldok", "Garantía hasta", m.warranty_ends_on ? shortDay(m.warranty_ends_on) : null)}
+        <div className="py-3"><label htmlFor="tel" className="text-[12.5px] text-muted">Tu teléfono (el fabricante lo pide para agendar)</label>
+          <input id="tel" inputMode="tel" autoComplete="tel" placeholder="55 1234 5678" value={phone} onChange={(e) => setPhone(e.target.value)} className="field mt-1" /></div>
+      </div>
+      <ConsentCheck checked={ok} onChange={setOk}>Autorizo que NidoGuard llame al fabricante y le dé estos datos para agendar mi servicio. La llamada se graba.</ConsentCheck>
+      <div className="mt-2.5"><NoCobro text={NO_COBRO_FABRICANTE} /></div>
+      <ErrorNote text={err} />
+      <Actions>
+        <Btn disabled={busy || !ok || phone.replace(/\D/g, "").length < 10} onClick={() => act("/service-requests/{id}/start", { consent: ok, phone })}><Icon name="phone" size={19} stroke={2.2} />Agendar con el fabricante</Btn>
+        <TextLink onClick={() => act("/service-requests/{id}/scope", { route: "tecnico" })}>Prefiero un técnico a domicilio</TextLink>
+        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar solicitud</TextLink>
+      </Actions>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Mientras se busca
+export function Progreso({ r, act, busy, onSee }: P & { onSee: () => void }) {
+  const p = progressOf(r);
+  const shown = (r.calls ?? []).filter((c) => c.status !== "cancelada");
+  return (
+    <div>
+      <Summary title={r.scope_text ?? ""} sub={r.equipment_label} />
+      <div className="g mt-3 rounded-[26px] p-4" role="status">
+        <p className="text-[13px] font-bold text-muted">Llamando a técnicos cercanos</p>
+        <p className="mt-1 text-[26px] font-extrabold leading-tight">{p.got} de {p.target} <span className="text-[15px] font-bold text-muted">cotizaciones</span></p>
+        <div role="progressbar" aria-valuemin={0} aria-valuemax={p.target} aria-valuenow={p.got} aria-label="Cotizaciones recibidas" className="mt-3 h-2.5 overflow-hidden rounded-full bg-navy/10">
+          <div className="h-full rounded-full" style={{ width: `${p.pct}%`, background: "linear-gradient(90deg,#7399B5,#183B56)" }} /></div>
+        <p className="mt-2 text-[12.5px] text-muted">Llevamos {p.done} de {p.total} llamadas. Solo llamamos de 9:00 a 19:00.</p>
+      </div>
+      <Label>Llamadas</Label>
+      <div className="g rounded-[26px] px-4 py-1">
+        {shown.map((c, i) => {
+          const done = c.status === "completada";
+          const tone = done ? "#235A3B" : c.status === "sin_respuesta" || c.status === "rechazo" ? "#8F5A1F" : "#183B56";
+          return (
+            <div key={c.label}>{i > 0 && <Hr />}
+              <div className="flex items-center gap-3 py-3">
+                <span aria-hidden="true" className="grid h-[34px] w-[34px] flex-none place-items-center rounded-full" style={{ background: done ? "rgba(47,107,74,.16)" : "rgba(115,153,181,.28)", color: tone }}>
+                  <Icon name={done ? "check" : c.status === "en_cola" ? "clock" : "phone"} size={17} stroke={2.4} /></span>
+                <div className="min-w-0 flex-1"><p className="text-[14px] font-extrabold">{c.label}<span className="ml-1.5 text-[12.5px] font-semibold text-muted">{distanceLabel(c.distance_km)}</span></p>
+                  <p className="text-[12.5px] font-semibold" style={{ color: tone }}>{callText(c)}</p></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <Note>Puedes cerrar la app. Te avisamos cuando haya cotizaciones.</Note>
+      <Actions>
+        {r.quote_count > 0 && <Btn ghost onClick={onSee}><Icon name="list" size={19} />Ver las que ya llegaron</Btn>}
+        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar búsqueda</TextLink>
+      </Actions>
+    </div>
+  );
+}
+
+export function FabricanteLlamando({ r, act }: P) {
+  return (
+    <div>
+      <Summary icon="building" title={r.scope_text ?? ""} sub={r.equipment_label} />
+      <Timeline rows={[{ state: "ok", text: "Tenemos tus datos y tu permiso" }, { state: "now", text: "Llamando al fabricante", sub: "Puede haber espera en la línea" }, { state: "wait", text: "Agendando tu cita" }, { state: "wait", text: "Confirmación y folio" }]} />
+      <Note>Puedes cerrar la app. Te avisamos con la fecha de tu cita en cuanto quede.</Note>
+      <Actions><TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar</TextLink></Actions>
+    </div>
+  );
+}
+
+export function SinRespuesta({ r, act, busy, err }: P) {
+  const calls = r.calls ?? [];
+  const no = calls.filter((c) => c.status === "sin_respuesta").length, rech = calls.filter((c) => c.status === "rechazo").length;
+  return (
+    <div>
+      <Summary title={r.scope_text ?? ""} sub={r.equipment_label} />
+      <div className="g mt-3 rounded-[26px] p-5 text-center">
+        <span className="icon-tile mx-auto"><Icon name="clock" size={22} /></span>
+        <p className="mt-3 text-[20px] font-extrabold">Hoy nadie cotizó</p>
+        <p className="mt-1.5 text-[14px] leading-relaxed text-muted">{calls.length === 0 ? "No encontramos técnicos para este equipo en tu zona." : `Llamamos a ${calls.length} técnicos. ${no} no contestaron${rech ? ` y ${rech} no dan servicio a este equipo` : ""}.`}</p>
+      </div>
+      <ErrorNote text={err} />
+      <Actions>
+        {r.radius_km < 25 && <Btn disabled={busy} onClick={() => act("/service-requests/{id}/expand")}><Icon name="pin" size={19} />Buscar hasta 25 km</Btn>}
+        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar búsqueda</TextLink>
+      </Actions>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Comparar
+export function QuoteCard({ q, rid }: { q: Quote; rid: string }) {
+  const otro = q.matches === "distinto";
+  return (
+    <Link href={`/servicios/${rid}/cotizacion/${q.id}`} className="g block rounded-[26px] p-4">
+      <div className="flex items-start justify-between gap-2.5">
+        <div className="min-w-0"><p className="text-[15px] font-extrabold">{q.label}</p><p className="mt-0.5 text-[12.5px] text-muted">{distanceLabel(q.distance_km)}</p></div>
+        {q.rating != null && <span className="flex items-center gap-1 whitespace-nowrap text-[12.5px] font-extrabold text-[#8F5A1F]"><Icon name="star" size={14} fill />{q.rating.toFixed(1)}{q.reviews != null && <span className="font-semibold text-muted">({q.reviews})</span>}</span>}
+      </div>
+      <div className="mt-2.5 rounded-2xl bg-navy/[.06] px-3 py-2.5">
+        <p className="text-[12px] font-bold text-muted">Qué cotizó</p>
+        <p className={`mt-0.5 text-[13.5px] font-bold leading-snug ${otro ? "text-[#8F5A1F]" : ""}`}>{q.scope_quoted}</p>
+        {otro && <div className="mt-1.5"><Chip tone="cobre" icon="info">Cotizó otra cosa</Chip></div>}
+      </div>
+      <div className="mt-2.5 flex items-end justify-between gap-2.5">
+        <div><p className="text-[24px] font-extrabold leading-tight">{priceLabel(q)}</p><p className="text-[12.5px] text-muted">{priceNote(q.price_type)}</p></div>
+        <div className="text-right">{q.availability[0] && <p className="text-[13px] font-extrabold">{shortDay(q.availability[0].date)}</p>}
+          <div className="mt-1 flex flex-wrap justify-end gap-1">{q.tags.map((t) => <Chip key={t} tone={t === "mas_barata" ? "green" : "blue"}>{TAG_LABEL[t]}</Chip>)}</div></div>
+      </div>
+      <div className="mt-2.5 flex flex-wrap gap-1.5"><Chip tone="gray">{warrantyLabel(q.warranty_days)}</Chip><Chip tone="gray">{invoiceLabel(q.invoice)}</Chip></div>
+    </Link>
+  );
+}
+
+export function Comparar({ r }: { r: ServiceRequest }) {
+  const [sort, setSort] = useState<Sort>("precio");
+  const quotes = sortQuotes(r.quotes ?? [], sort);
+  return (
+    <div>
+      <Summary title={r.scope_text ?? ""} sub={r.equipment_label} />
+      <div role="tablist" aria-label="Ordenar" className="g mt-3 flex rounded-[22px] p-1">
+        {([["precio", "Mejor precio"], ["pronto", "Más pronto"], ["cerca", "Más cerca"]] as [Sort, string][]).map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={sort === k} onClick={() => setSort(k)} className={`h-9 flex-1 rounded-full text-[13px] font-bold ${sort === k ? "gd !rounded-full font-extrabold" : "text-navy"}`}>{l}</button>
+        ))}
+      </div>
+      <Note>Son cotizaciones dadas por teléfono. El precio puede cambiar cuando el técnico revise tu equipo.</Note>
+      <div className="mt-3 flex flex-col gap-2.5">{quotes.map((q) => <QuoteCard key={q.id} q={q} rid={r.id} />)}</div>
+      <div className="mt-4"><NoCobro /></div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Detalle de una cotización
+export function QuoteDetail({ q, scope, rid }: { q: Quote; scope: string | null; rid: string }) {
+  return (
+    <div>
+      <div className="g mt-3 rounded-[26px] p-4">
+        <p className="text-[12px] font-bold text-muted">Qué cotizó</p>
+        <p className="mt-0.5 text-[15px] font-extrabold leading-snug">{q.scope_quoted}</p>
+        <p className="mt-3 text-[34px] font-extrabold leading-none">{priceLabel(q)}</p>
+        <p className="mt-1 text-[13px] text-muted">{priceNote(q.price_type)}</p>
+        <div className="mt-2">
+          <KV icon="wallet" k="Cargo por visita" v={q.visit_fee ? `${money(q.visit_fee)}` : "No lo cobra"} /><Hr />
+          <KV icon="shieldok" k="Garantía del trabajo" v={q.warranty_days ? `${q.warranty_days} días` : "No dijo"} /><Hr />
+          <KV icon="receipt" k="Factura" v={q.invoice == null ? "No dijo" : q.invoice ? "Sí la da" : "No la da"} />
+          {q.payment_methods.length > 0 && <><Hr /><KV icon="wallet" k="Formas de pago" v={q.payment_methods.join(" o ")} /></>}
+        </div>
+      </div>
+      {q.matches === "distinto" && <div className="mt-3"><Callout>Esta cotización no es de lo mismo que pediste (“{scope}”). Compárala con cuidado.</Callout></div>}
+      <Label>Qué incluye</Label>
+      <div className="g rounded-[26px] px-4 py-3">
+        {q.includes.map((t) => <p key={t} className="flex items-start gap-2.5 py-1 text-[13.5px] leading-snug"><span className="mt-px text-[#235A3B]"><Icon name="check" size={16} stroke={2.6} /></span>{t}</p>)}
+        {q.excludes.map((t) => <p key={t} className="flex items-start gap-2.5 py-1 text-[13.5px] leading-snug"><span className="mt-px text-[#8F5A1F]"><Icon name="x" size={16} stroke={2.6} /></span>{t}</p>)}
+      </div>
+      <Label>Cuándo puede ir</Label>
+      <div className="g flex flex-wrap gap-2 rounded-[26px] p-3.5">{q.availability.map((s) => <Chip key={`${s.date}${s.window}`} icon="calendar">{slotChip(s)}</Chip>)}</div>
+      {q.summary && (<>
+        <Label>Lo que dijo por teléfono</Label>
+        <div className="g rounded-[26px] p-4"><p className="flex items-center gap-1.5 text-[12px] font-bold text-[#8F5A1F]"><Icon name="sparkle" size={14} stroke={2.2} />Resumen de NidoGuard</p>
+          <p className="mt-2 text-[14px] leading-relaxed">{q.summary}</p></div></>)}
+      <div className="mt-3"><NoCobro /></div>
+      <Note>Cotización por teléfono. El precio puede cambiar cuando el técnico revise tu equipo.</Note>
+      <Actions><Link href={`/servicios/${rid}/agendar?q=${q.id}`} className="btn"><Icon name="calendar" size={19} stroke={2.2} />Elegir y agendar</Link>
+        <Link href={`/servicios/${rid}`} className="btn btn-ghost">Volver a las cotizaciones</Link></Actions>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Después de elegir
+const CALENDAR_TITLE = (r: ServiceRequest) => `${r.appointment?.kind === "fabricante" ? "Cita con el fabricante" : "Visita del técnico"}: ${r.equipment_label}`;
+
+function DoneBox({ r, act, busy }: P) {
+  const [open, setOpen] = useState(false); const [cost, setCost] = useState("");
+  const ap = r.appointment!;
+  if (ap.status !== "confirmada") return null;
+  return open ? (
+    <div className="g mt-1 rounded-[22px] p-3.5">
+      <label htmlFor="costo" className="text-[13px] font-bold">¿Cuánto pagaste? (opcional)</label>
+      <div className="mt-1.5 flex gap-2"><input id="costo" inputMode="decimal" placeholder="$0" value={cost} onChange={(e) => setCost(e.target.value)} className="field flex-1" />
+        <button type="button" disabled={busy} className="btn !px-4" onClick={() => act(`/appointments/${ap.id}/done`, { final_cost: cost ? Number(cost.replace(/[^0-9.]/g, "")) : null })}>Guardar</button></div>
+      <p className="mt-1.5 text-[12px] text-muted">Se guarda en el Historial de tu equipo. NidoGuard no procesa pagos.</p>
+    </div>
+  ) : <Btn ghost onClick={() => setOpen(true)}><Icon name="check" size={19} stroke={2.4} />Ya me atendieron</Btn>;
+}
+
+export function Visita(p: P) {
+  const { r, act } = p; const ap = r.appointment!;
+  const confirmada = ap.status === "confirmada" && ap.starts_at;
+  const a = ap.agreed;
+  const slot = ap.requested_slot;
+  return (
+    <div>
+      {confirmada
+        ? <Hero kicker="Tu visita quedó para el" title={longDay(ap.starts_at!)} sub={hourRange(ap.starts_at!, ap.ends_at)} />
+        : <Hero icon="clock" kicker="Pedimos tu visita para el" title={slot ? longDay(`${slot.date}T12:00:00-06:00`) : "la fecha que elegiste"} sub="Esperando que el técnico confirme" />}
+      {a && (
+        <div className="g mt-4 rounded-[26px] p-4">
+          <div className="flex items-center gap-3"><span className="icon-tile"><Icon name="user" size={20} /></span>
+            <div className="min-w-0 flex-1"><p className="text-[15px] font-extrabold">{ap.technician_name ?? a.label}</p>
+              <p className="text-[12.5px] text-muted">{a.rating != null ? `${a.rating.toFixed(1)} de 5 (${a.reviews} reseñas) · ` : ""}Va a tu casa</p></div></div>
+          <p className="mt-3 border-t border-navy/10 pt-3 text-[13.5px] leading-relaxed"><b>Qué acordamos:</b> {a.scope} <b>{priceLabel({ price_min: a.price_min, price_max: a.price_max, price_type: a.price_type })}</b>
+            {a.visit_fee ? `, más ${money(a.visit_fee)} de visita` : ", sin cargo por visita"}.{a.warranty_days ? ` Garantía de ${a.warranty_days} días` : ""}{a.invoice ? " y factura." : "."}</p>
+        </div>
+      )}
+      <Label>Seguimiento</Label>
+      <Timeline rows={[{ state: "ok", text: "Visita pedida" }, { state: confirmada ? "ok" : "now", text: confirmada ? "Confirmada con el técnico" : "Esperando confirmación del técnico" }, { state: "wait", text: "Recordatorio el día anterior" }]} />
+      <div className="mt-3"><NoCobro /></div>
+      <Note>Tu dirección exacta se le dio al técnico cuando confirmó. Cuando termine el servicio, lo guardamos en el Historial de tu equipo.</Note>
+      <Actions>
+        {confirmada && <a className="btn" download="visita-nidoguard.ics" href={icsLink(CALENDAR_TITLE(r), ap.starts_at!, ap.ends_at)}><Icon name="calendar" size={19} stroke={2.2} />Agregar al calendario</a>}
+        <DoneBox {...p} />
+        <Link href="/servicios" className="btn btn-ghost"><Icon name="list" size={19} />Ver mis solicitudes</Link>
+        <TextLink onClick={() => act(`/appointments/${ap.id}/cancel`)} danger>Cambiar o cancelar la visita</TextLink>
+      </Actions>
+    </div>
+  );
+}
+
+export function CitaFabricante(p: P) {
+  const { r, act } = p; const ap = r.appointment!;
+  const lugar = [ap.center_name, ap.center_address].filter(Boolean).join(", ");
+  return (
+    <div>
+      <Hero kicker={ap.registered_by_user ? "Registraste tu cita para el" : "Tu cita quedó para el"} title={ap.starts_at ? longDay(ap.starts_at) : "la fecha acordada"} sub={ap.starts_at ? hourRange(ap.starts_at, ap.ends_at) : ""} />
+      <div className="g mt-4 rounded-[26px] p-4">
+        <div className="flex items-start gap-3"><span className="icon-tile" style={{ background: "#F1E2D3" }}><Icon name="building" size={20} /></span>
+          <div className="min-w-0 flex-1"><p className="text-[15px] font-extrabold">{ap.center_name ?? "Centro de servicio"}</p>{ap.center_address && <p className="mt-0.5 text-[13px] leading-snug text-muted">{ap.center_address}</p>}</div></div>
+        {ap.folio && <p className="mt-3 flex justify-between border-t border-navy/10 pt-3 text-[13.5px]"><span className="text-muted">Folio</span><b>{ap.folio}</b></p>}
+      </div>
+      {ap.bring.length > 0 && (<><Label>Lleva</Label><div className="g rounded-[26px] px-4 py-2.5">{ap.bring.map((t) => <p key={t} className="flex items-center gap-2.5 py-1.5 text-[14px]"><span className="text-[#235A3B]"><Icon name="check" size={16} stroke={2.6} /></span>{t}</p>)}</div></>)}
+      <div className="mt-3"><NoCobro text={NO_COBRO_FABRICANTE} /></div>
+      <Note>Cuando termine el servicio, lo guardamos en el Historial de tu equipo.</Note>
+      <Actions>
+        {ap.starts_at && <a className="btn" download="cita-nidoguard.ics" href={icsLink(CALENDAR_TITLE(r), ap.starts_at, ap.ends_at, lugar || null)}><Icon name="calendar" size={19} stroke={2.2} />Agregar al calendario</a>}
+        {ap.center_address && <a className="btn btn-ghost" href={mapsLink(lugar)} target="_blank" rel="noreferrer"><Icon name="nav" size={19} />Cómo llegar</a>}
+        <DoneBox {...p} />
+        <TextLink onClick={() => act(`/appointments/${ap.id}/cancel`)} danger>Cambiar o cancelar la cita</TextLink>
+      </Actions>
+    </div>
+  );
+}
+
+export function FabricanteManual({ r, act, busy, err }: P) {
+  const m = r.manufacturer;
+  const [copied, setCopied] = useState<string | null>(null);
+  const [date, setDate] = useState(""); const [win, setWin] = useState<"manana" | "tarde">("manana"); const [folio, setFolio] = useState("");
+  const filas: [string, string | null][] = [["Marca y modelo", [m?.brand, m?.model].filter(Boolean).join(" ") || null], ["Número de serie", m?.serial ?? null],
+    ["Qué pasa", r.symptom ?? r.scope_text], ["Tu dirección", m?.address ?? null], ["Tu teléfono", m?.phone ?? null]];
+  return (
+    <div>
+      <div className="mt-3"><Callout>No pudimos agendar con el fabricante: puede que pida que el titular hable directamente. Te dejamos todo listo para que agendes en un minuto.</Callout></div>
+      <Label>Esto te van a pedir</Label>
+      <div className="g rounded-[26px] px-4 py-1.5">
+        {filas.filter(([, v]) => v).map(([k, v], i) => (
+          <div key={k}>{i > 0 && <Hr />}<div className="flex items-center gap-2.5 py-2.5">
+            <div className="min-w-0 flex-1"><p className="text-[12.5px] text-muted">{k}</p><p className="text-[14px] font-extrabold leading-snug">{v}</p></div>
+            <button type="button" aria-label={`Copiar ${k}`} className="g grid h-11 w-11 flex-none place-items-center !rounded-full text-navy"
+              onClick={() => { navigator.clipboard?.writeText(v!); setCopied(k); }}><Icon name={copied === k ? "check" : "copy"} size={18} /></button></div></div>
+        ))}
+      </div>
+      <Note icon="search">Busca la línea de servicio en la garantía, el manual o la página del fabricante.</Note>
+      <Label>Cuando tengas tu cita, dinos para cuándo quedó</Label>
+      <div className="g flex flex-col gap-2.5 rounded-[26px] p-3.5">
+        <label className="sr-only" htmlFor="fecha">Fecha de la cita</label><input id="fecha" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="field" />
+        <div className="flex gap-2">{(["manana", "tarde"] as const).map((w) => (
+          <button key={w} type="button" aria-pressed={win === w} onClick={() => setWin(w)} className={`h-11 flex-1 rounded-full text-[14px] font-bold ${win === w ? "gd !rounded-full" : "g !rounded-full text-navy"}`}>{w === "manana" ? "Mañana" : "Tarde"}</button>))}</div>
+        <label className="sr-only" htmlFor="folio">Folio (opcional)</label><input id="folio" placeholder="Folio (opcional)" value={folio} onChange={(e) => setFolio(e.target.value)} className="field" />
+      </div>
+      <ErrorNote text={err} />
+      <Actions>
+        <Btn disabled={busy || !date} onClick={() => act("/service-requests/{id}/register", { date, window: win, folio: folio || null })}><Icon name="calendar" size={19} stroke={2.2} />Registrar mi cita</Btn>
+        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar solicitud</TextLink>
+      </Actions>
+    </div>
+  );
+}
+
+export function Cerrada({ r }: { r: ServiceRequest }) {
+  return (
+    <div>
+      <Summary title={r.scope_text ?? ""} sub={r.equipment_label} />
+      <div className="g mt-3 rounded-[26px] p-5 text-center"><span className="icon-tile mx-auto"><Icon name={r.status === "terminada" ? "check" : "x"} size={22} /></span>
+        <p className="mt-3 text-[18px] font-extrabold">{r.status === "terminada" ? "Servicio terminado" : "Solicitud cancelada"}</p>
+        <p className="mt-1 text-[13.5px] text-muted">{r.status === "terminada" ? "Quedó guardado en el Historial de tu equipo." : "No se llamó a nadie más."}</p>
+        {r.appointment?.final_cost != null && <p className="mt-2 text-[14px] font-bold">Pagaste {money(r.appointment.final_cost)}</p>}</div>
+      <Actions><Link href="/servicios" className="btn btn-ghost">Ver mis solicitudes</Link></Actions>
+    </div>
+  );
+}

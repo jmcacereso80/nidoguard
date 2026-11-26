@@ -28,7 +28,7 @@ export function useApi() {
   }, [getToken]);
 }
 
-export type Home = { id: string; name: string; properties: { id: string; name: string }[] };
+export type Home = { id: string; name: string; properties: { id: string; name: string; address?: { street: string | null; colony: string | null; postal_code: string | null; city: string | null; state: string | null; search_radius_km: number; complete: boolean } }[] };
 export type Me = { user: { id: string; email: string | null; name: string | null }; home: Home | null; suggested_spaces: string[] };
 export type Space = { id: string; name: string; icon: string | null; property_id: string };
 export type Asset = { id: string; name: string; status: string; brand: string | null; model: string | null; serial: string | null; category: string | null; space_id: string | null };

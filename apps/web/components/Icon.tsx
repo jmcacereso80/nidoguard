@@ -41,12 +41,28 @@ const P: Record<string, React.ReactNode> = {
   hervidor: <><path d="M5 20v-7a6 6 0 0 1 12 0v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" /><path d="m17 11 4-3" /><path d="M5 11H3.6a1.6 1.6 0 0 0 0 3H5" /><path d="M11 7V4.5" /></>,
   olla: <><path d="M5 10h14v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3z" /><path d="M5 10a7 5 0 0 1 14 0" /><path d="M5 13H2.5M19 13h2.5" /><path d="M12 5V3.5" /></>,
   campana: <><path d="M8 3h8l3 9H5z" /><path d="M3 12h18" /><path d="M9 16v3M12 16v4M15 16v3" /></>,
+  alert: <><path d="M12 3 2 20h20z"/><path d="M12 10v5M12 18h.01"/></>,
+  image: <><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></>,
+  pin: <><path d="M12 21s7-6 7-11a7 7 0 0 0-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></>,
+  phone: <path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L9 10.8a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></>,
+  star: <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>,
+  list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>,
+  lock: <><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></>,
+  wallet: <><path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H5a2 2 0 0 1-2-2z"/><path d="M16 14h.01"/></>,
+  receipt: <><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></>,
+  shieldok: <><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></>,
+  info: <><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></>,
+  building: <><path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/><path d="M16 9h2a2 2 0 0 1 2 2v10M2 21h20M8 7h4M8 11h4M8 15h4"/></>,
+  nav: <path d="m3 11 18-8-8 18-2-8z"/>,
+  copy: <><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></>,
+  home2: <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-7h6v7"/></>,
   dispensador: <><path d="M9 2h6l1 4H8z" /><rect x="6" y="9" width="12" height="12" rx="2.5" /><path d="M10 14h4M12 14v3" /></>,
 };
 
-export function Icon({ name, size = 22, stroke = 2 }: { name: keyof typeof P | string; size?: number; stroke?: number }) {
+export function Icon({ name, size = 22, stroke = 2, fill = false }: { name: keyof typeof P | string; size?: number; stroke?: number; fill?: boolean }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke}
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill ? "currentColor" : "none"} stroke="currentColor" strokeWidth={stroke}
          strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>{P[name] ?? P.box}</svg>
   );
 }

@@ -12,7 +12,7 @@ export type CareSource = "manual" | "sugerencia";
 export type Unit = "dia" | "semana" | "mes" | "anio";
 export type Every = { n: number; unit: Unit };
 export type Priority = "alta" | "media" | "baja";
-export type CareTask = { id: string; title: string; detail: string | null; every: Every; next_due: string | null; source: CareSource; instructions: string | null; done_at: string | null; priority?: Priority; confirmed?: boolean };
+export type CareTask = { id: string; title: string; detail: string | null; every: Every; next_due: string | null; source: CareSource; instructions: string | null; done_at: string | null; priority?: Priority; confirmed?: boolean; needs_technician?: boolean };
 export type CareData = { model_confirmed: boolean; tasks: CareTask[] };
 
 export const SOURCE_LABEL: Record<CareSource, string> = {

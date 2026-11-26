@@ -5,6 +5,7 @@ import { Icon } from "@/components/Icon";
 import { ErrorNote } from "@/components/Shell";
 import { ApiError, useApi } from "@/lib/api";
 import { CareData, CareTask, SOURCE_LABEL, dueLabel, everyShort, groupByFrequency, showWarrantyAlert, warrantyView } from "@/lib/care";
+import { QuoteButton } from "@/components/servicios/QuoteButton";
 import { useDocumentos } from "./Documentos";
 
 const hoyISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -107,6 +108,7 @@ export function Cuidado({ id, ready = true }: { id: string; ready?: boolean }) {
                     <div className="mt-3 flex flex-col gap-3 border-t border-navy/10 pt-3">
                       {t.detail && <p className="text-[13px] text-muted">{t.detail}</p>}
                       {t.instructions && <p className="whitespace-pre-line text-[14px] leading-relaxed text-[var(--ng-body)]">{t.instructions}</p>}
+                      {t.needs_technician && <QuoteButton taskId={t.id} />}
                       <div className="flex gap-2">
                         <button type="button" disabled={ocupado} className="btn !min-h-11 flex-1 !px-3 !text-[14px]"
                           onClick={() => accion.mutate({ path: `/care/${t.id}/done`, ok: (r) => `Listo. La próxima vez: ${dueLabel(r.next_due ?? "").text.replace("Próximo: ", "")}.` })}>
