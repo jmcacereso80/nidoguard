@@ -170,7 +170,7 @@ function FormaGarantia({ id, pendiente, actual }: { id: string; pendiente: Warra
           {actual.price != null && <p className="text-[13px] text-muted">Precio de compra: ${actual.price.toLocaleString("es-MX")} MXN</p>}
         </div>
         <span className={`chip ${TONE[v.tone]}`}><Icon name="clock" size={13} stroke={2.4} />{v.badge}</span>
-        <button type="button" className="btn-ghost h-10 px-3 text-[14px] font-bold" onClick={() => setEditando(true)}>Editar</button>
+        <button type="button" className="btn btn-ghost !min-h-10 !px-3 !text-[14px]" onClick={() => setEditando(true)}>Editar</button>
       </div>
     );
   }
@@ -189,8 +189,8 @@ function FormaGarantia({ id, pendiente, actual }: { id: string; pendiente: Warra
         <input type="number" min={0} step="0.01" className="field" value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder="Ej. 8500" />
       </label>
       <div className="flex gap-2.5">
-        <button className="btn h-11 flex-1 text-[14px] font-bold" disabled={busy || !fecha}>{busy ? "Guardando…" : "Guardar garantía"}</button>
-        {actual && <button type="button" className="btn-ghost h-11 px-4 text-[14px] font-bold" onClick={() => setEditando(false)}>Cancelar</button>}
+        <button className="btn !min-h-11 flex-1 !px-3 !text-[14px]" disabled={busy || !fecha}>{busy ? "Guardando…" : "Guardar garantía"}</button>
+        {actual && <button type="button" className="btn btn-ghost !min-h-11 !px-4 !text-[14px]" onClick={() => setEditando(false)}>Cancelar</button>}
       </div>
       {msg && <p role="alert" className="text-[12.5px] font-semibold text-[var(--ng-danger)]">{msg}</p>}
     </form>
