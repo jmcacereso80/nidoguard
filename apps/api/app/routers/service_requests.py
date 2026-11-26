@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..models import Organization, ServiceAppointment, ServiceQuote, ServiceRequest, User
 from ..security import current_org, current_user
+from ..services import call_results
 from ..services import requests_flow as F
 from ..services.scope import ScopeWriter, get_scope_writer
 from ..services.voice import VoiceCaller, get_voice
@@ -58,6 +59,7 @@ def _req(db: Session, org: Organization, request_id: uuid.UUID, advance: bool = 
         raise HTTPException(404, "No encontramos esa solicitud.")
     if advance:
         F.advance_fake(db, r)
+        call_results.settle(db, r, get_voice())
         db.refresh(r)
     return r
 
@@ -83,6 +85,7 @@ def list_requests(org: Organization = Depends(current_org), db: Session = Depend
     for r in rows:
         if r.status in ("buscando", "agendada"):
             F.advance_fake(db, r)
+            call_results.settle(db, r, get_voice())
     return {"requests": [F.request_out(db, r, detail=False) for r in rows]}
 
 

@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     voice: str = "fake"  # fake | retell. Con 'fake' nunca se llama a nadie
     calls_enabled: bool = False  # interruptor general de llamadas reales
     calls_allowlist: str = ""  # telefonos E.164 permitidos mientras dure el piloto, separados por coma
+    retell_api_key: str = ""  # tambien firma los webhooks de Retell
+    retell_agent_id: str = ""  # agente cotizador
+    retell_agent_id_fabricante: str = ""  # agente para el centro de atencion del fabricante (opcional: usa el cotizador si falta)
+    retell_from_number: str = ""  # numero E.164 desde el que se llama
+    calls_wave: int = 3  # llamadas simultaneas por solicitud
+    quote_model: str = "claude-sonnet-5-5"  # extrae la cotizacion de la transcripcion
     fake_voice_step_seconds: int = 4  # cada cuanto "termina" una llamada falsa
     geocoder: str = "nominatim"  # nominatim | fake
     geocoder_user_agent: str = "NidoGuard/1.0 (contacto@nidoguard.com)"

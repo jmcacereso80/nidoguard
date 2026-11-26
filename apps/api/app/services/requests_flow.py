@@ -111,6 +111,7 @@ def start(db: Session, req: ServiceRequest, user, org, consent: bool, voice: Voi
     req.status, req.started_at = "buscando", utcnow()
     ensure_directory(db, prop.city or "Ciudad de México", spec, get_source())
     _queue_calls(db, req, voice, spec)
+    _dispatch(db, req, voice)
     db.commit()
     return req
 
@@ -141,8 +142,14 @@ def expand(db: Session, req: ServiceRequest, voice: VoiceCaller) -> ServiceReque
         db.commit()
         raise HTTPException(409, "No encontramos más técnicos en esa zona.")
     req.status = "buscando"
+    _dispatch(db, req, voice)
     db.commit()
     return req
+
+
+def _dispatch(db, req, voice):
+    from . import call_results
+    call_results.dispatch(db, req, voice)
 
 
 def _start_manufacturer(db: Session, req: ServiceRequest, user, org, voice: VoiceCaller, phone: str | None) -> ServiceRequest:
@@ -164,6 +171,7 @@ def _start_manufacturer(db: Session, req: ServiceRequest, user, org, voice: Voic
                                       symptom=req.symptom, urgency=req.urgency, zone=prop.city or "",
                                       extra={"slot": 1, "brand": a.brand, "model": a.model, "serial": a.serial,
                                              "holder_name": user.name, "address": prop.address}))
+    _dispatch(db, req, voice)
     db.commit()
     return req
 
