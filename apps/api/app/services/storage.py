@@ -13,6 +13,7 @@ class Storage(Protocol):
     def presign_get(self, key: str, expires: int = 600) -> str: ...
     def head(self, key: str) -> dict | None: ...
     def get_bytes(self, key: str) -> bytes: ...
+    def delete(self, key: str) -> None: ...
 
 
 def derive_r2_secret(api_token: str) -> str:
@@ -49,6 +50,9 @@ class R2Storage:
 
     def get_bytes(self, key):
         return self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+
+    def delete(self, key):
+        self.client.delete_object(Bucket=self.bucket, Key=key)
 
 
 def get_storage() -> Storage:

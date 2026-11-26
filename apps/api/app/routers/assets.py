@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -158,6 +158,61 @@ def _apply(a: EquipmentAsset, f: dict):
             setattr(a, k, f[k])
     if f.get("extra"):
         a.extra = {**(a.extra or {}), **f["extra"]}
+
+
+class AssetEditIn(BaseModel):
+    """Campos que el usuario puede corregir. Solo cambia lo que se manda."""
+    name: str | None = Field(default=None, max_length=200)
+    space_id: uuid.UUID | None = None
+    category: str | None = Field(default=None, max_length=80)
+    brand: str | None = Field(default=None, max_length=120)
+    model: str | None = Field(default=None, max_length=120)
+    serial: str | None = Field(default=None, max_length=120)
+
+
+@router.patch("/{asset_id}")
+def edit_asset(asset_id: uuid.UUID, body: AssetEditIn, user: User = Depends(current_user),
+               org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+    a = _own(db, org, asset_id)
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        return _out(a)
+    if "name" in changes and not (changes["name"] or "").strip():
+        raise HTTPException(422, "El equipo necesita un nombre.")
+    if "space_id" in changes:
+        if changes["space_id"] is None:
+            raise HTTPException(422, "Elige dónde está el equipo.")
+        space = db.scalar(select(Space).where(Space.id == changes["space_id"], Space.organization_id == org.id))
+        if not space:
+            raise HTTPException(404, "No encontramos esa ubicación.")
+        a.space_id = space.id
+    for k in ("name", "category", "brand", "model", "serial"):
+        if k in changes:
+            v = (changes[k] or "").strip() or None
+            setattr(a, k, v)
+    _event(db, a, "edicion", user, fields=sorted(changes.keys()))
+    db.commit()
+    return _out(a)
+
+
+@router.delete("/{asset_id}", status_code=204)
+def delete_asset(asset_id: uuid.UUID, org: Organization = Depends(current_org), db: Session = Depends(get_db),
+                 storage: Storage = Depends(get_storage)):
+    """Elimina el equipo y su historial. La etiqueta vuelve a quedar disponible para otro equipo."""
+    a = _own(db, org, asset_id)
+    keys = list(db.scalars(select(AssetImage.storage_key).where(AssetImage.asset_id == a.id)))
+    if a.tag_id:
+        tag = db.get(SmartTag, a.tag_id)
+        if tag:
+            tag.status = TagStatus.disponible
+    db.delete(a)              # lecturas, fotos y eventos se borran en cascada (ON DELETE CASCADE)
+    db.commit()
+    for key in keys:          # la foto privada tambien se borra de R2; si falla, no bloquea el borrado
+        try:
+            storage.delete(key)
+        except Exception:
+            pass
+    return Response(status_code=204)
 
 
 @router.patch("/{asset_id}/manual")
