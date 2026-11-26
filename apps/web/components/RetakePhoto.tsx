@@ -58,13 +58,17 @@ export function RetakePhoto({ assetId, onDone, kind = "placa" }: { assetId: stri
       ) : null}
       {phase === "subiendo" && (
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold text-navy">Subiendo la foto… {pct}%</p>
+          <p className="text-sm font-semibold text-navy">{kind === "equipo" ? "Subiendo la foto del equipo" : "Subiendo la foto de la placa"}… {pct}%</p>
           <div className="h-3 w-full overflow-hidden rounded-full bg-white/70" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
             <div className="h-3 rounded-full bg-[#C18B58] transition-[width] duration-200" style={{ width: `${pct}%` }} />
           </div>
         </div>
       )}
-      {phase === "leyendo" && <p className="text-sm font-semibold text-navy">Foto recibida. Leyendo la placa otra vez…</p>}
+      {phase === "leyendo" && (
+        <p className="text-sm font-semibold text-navy">
+          {kind === "equipo" ? "Foto recibida. Estamos reconociendo el equipo con esta foto…" : "Foto recibida. Estamos leyendo la placa otra vez…"}
+        </p>
+      )}
       {msg && <p role="alert" className="text-sm font-semibold text-[var(--ng-danger)]">{msg}</p>}
     </Card>
   );
