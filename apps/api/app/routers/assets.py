@@ -122,16 +122,15 @@ def new_photo(asset_id: uuid.UUID, body: PhotoIn, org: Organization = Depends(cu
     ext = ALLOWED_TYPES.get(body.content_type)
     if not ext:
         raise HTTPException(422, "Formato de foto no permitido. Usa JPG, PNG, WEBP o HEIC.")
-    # Maximo 2 fotos por tipo: si ya hay 2, la nueva reemplaza a la mas vieja.
-    previas = list(db.scalars(select(AssetImage).where(
-        AssetImage.asset_id == a.id, AssetImage.kind == body.kind).order_by(AssetImage.created_at)))
-    while len(previas) >= 2:
-        vieja = previas.pop(0)
+    # Un lugar por tipo: la foto nueva de la placa sustituye a la placa anterior, y la del equipo a la del equipo.
+    previas = list(db.scalars(select(AssetImage).where(AssetImage.asset_id == a.id, AssetImage.kind == body.kind)))
+    for vieja in previas:
         try:
             storage.delete(vieja.storage_key)
         except Exception:
             pass
         db.delete(vieja)
+    db.flush()
     img_id = uuid.uuid4()
     key = f"org/{org.id}/assets/{a.id}/{img_id}.{ext}"
     db.add(AssetImage(id=img_id, asset_id=a.id, organization_id=org.id, kind=body.kind,
