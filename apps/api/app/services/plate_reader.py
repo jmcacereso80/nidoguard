@@ -31,11 +31,11 @@ FIELD_NAMES = ["category", "brand", "model", "serial"]
 
 PROMPT = (
     "Eres un lector de placas de equipos del hogar (lavadoras, refrigeradores, aires, televisores, etc.). "
-    "La foto 1 es la placa de datos del equipo. Si hay una foto 2 (y 3), muestran el equipo completo: "
-    "usalas SOLO para identificar el tipo y el nombre del equipo cuando la placa no lo diga. "
-    "Reglas: copia los valores EXACTAMENTE como aparecen en la placa; si un dato no se ve o no estas seguro, "
-    "usa null y confianza baja; NUNCA inventes ni completes marca, modelo o serie con lo que sabes del equipo. "
-    "Marca legible=false si la foto 1 esta borrosa, cortada o no muestra una placa. "
+    "Recibes fotos etiquetadas: 'placa de datos' (puede haber varias, de la misma placa) y 'equipo completo'. "
+    "De las placas copia marca, modelo y serie EXACTAMENTE como aparecen. Las fotos del equipo completo sirven "
+    "para identificar su TIPO y su nombre; el modelo solo si esta impreso a la vista en el equipo. "
+    "Si un dato no se ve o no estas seguro, usa null y confianza baja; NUNCA inventes ni completes marca, "
+    "modelo o serie con lo que sabes del equipo. Marca legible=false solo si ninguna placa es legible. "
     "En 'category' usa una palabra en espanol (lavadora, refrigerador, aire acondicionado, television...). "
     "Extrae SOLO marca, modelo y numero de serie; ignora voltaje, potencia, capacidad y demas datos. "
     "'suggested_name' es un nombre corto en espanol para el equipo. 'transcript' es todo el texto visible."
@@ -45,7 +45,7 @@ PROMPT = (
 class PlateReader(Protocol):
     name: str
 
-    def read(self, image: bytes, content_type: str, extra: list[tuple[bytes, str]] | None = None) -> PlateExtraction: ...
+    def read(self, image: bytes, content_type: str, extra: list[tuple[bytes, str, str]] | None = None) -> PlateExtraction: ...
 
 
 def prepare_image(raw: bytes, max_side: int = 1800) -> tuple[bytes, str]:
@@ -65,13 +65,14 @@ class ClaudePlateReader:
         self.name = model or s.plate_model
         self.effort = effort
 
-    def read(self, image: bytes, content_type: str, extra: list[tuple[bytes, str]] | None = None) -> PlateExtraction:
+    def read(self, image: bytes, content_type: str, extra: list[tuple[bytes, str, str]] | None = None) -> PlateExtraction:
         tool = {"name": "registrar_placa", "description": "Registra los datos leidos de la placa",
                 "input_schema": PlateExtraction.model_json_schema()}
         content = []
-        for i, raw in enumerate([image, *[e[0] for e in (extra or [])]], start=1):
+        photos = [(image, "placa")] + [(e[0], e[2]) for e in (extra or [])]
+        for i, (raw, kind) in enumerate(photos, start=1):
             data, mt = prepare_image(raw)
-            label = "Foto 1: placa de datos." if i == 1 else f"Foto {i}: equipo completo."
+            label = f"Foto {i}: {'placa de datos' if kind == 'placa' else 'equipo completo'}."
             content.append({"type": "text", "text": label})
             content.append({"type": "image", "source": {"type": "base64", "media_type": mt,
                                                         "data": base64.b64encode(data).decode()}})

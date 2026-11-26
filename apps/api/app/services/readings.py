@@ -23,7 +23,7 @@ def _needs_fallback(r: PlateExtraction) -> bool:
 
 
 def read_with_fallback(image: bytes, content_type: str, reader: PlateReader, fallback: PlateReader | None,
-                       extra: list[tuple[bytes, str]] | None = None):
+                       extra: list[tuple[bytes, str, str]] | None = None):
     result, used = reader.read(image, content_type, extra), reader.name
     if fallback is not None and _needs_fallback(result):
         better = fallback.read(image, content_type, extra)
@@ -35,9 +35,9 @@ def read_with_fallback(image: bytes, content_type: str, reader: PlateReader, fal
 def process_reading(db: Session, storage: Storage, asset_id: uuid.UUID, image_id: uuid.UUID,
                     reader: PlateReader, fallback: PlateReader | None = None) -> AssetReading:
     asset = db.get(EquipmentAsset, asset_id)
-    # Todas las fotos subidas del equipo: la placa primero, luego las del equipo completo (max. 3).
+    # Todas las fotos subidas del equipo: placas primero, luego las del equipo completo (max. 4).
     imgs = list(db.scalars(select(AssetImage).where(AssetImage.asset_id == asset_id, AssetImage.uploaded.is_(True))
-                           .order_by((AssetImage.kind != "placa").asc(), AssetImage.created_at.desc()).limit(3)))
+                           .order_by((AssetImage.kind != "placa").asc(), AssetImage.created_at.desc()).limit(4)))
     if not imgs:
         imgs = [db.get(AssetImage, image_id)]
     img, extra_imgs = imgs[0], imgs[1:]
@@ -47,7 +47,7 @@ def process_reading(db: Session, storage: Storage, asset_id: uuid.UUID, image_id
         reading = AssetReading(asset_id=asset_id, organization_id=asset.organization_id, source="ia")
         db.add(reading)
     try:
-        extra = [(storage.get_bytes(o.storage_key), o.content_type) for o in extra_imgs]
+        extra = [(storage.get_bytes(o.storage_key), o.content_type, o.kind) for o in extra_imgs]
         result, used = read_with_fallback(storage.get_bytes(img.storage_key), img.content_type, reader, fallback,
                                           extra or None)
     except Exception as e:  # la lectura nunca debe romper el alta

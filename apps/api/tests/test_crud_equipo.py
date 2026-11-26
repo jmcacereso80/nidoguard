@@ -166,6 +166,6 @@ def test_reader_gets_plate_and_product_photos_together(make_client, db):
     cap = Capture()
     process_reading(db, fs, uuid.UUID(a["id"]), placa.id, cap, None)
     _, _, extra = cap.calls[0]
-    assert extra is not None and len(extra) == 1 and extra[0][1] == "image/jpeg"
+    assert extra is not None and len(extra) == 1 and extra[0][1] == "image/jpeg" and extra[0][2] == "equipo"
     assert c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"}).status_code == 200
     assert c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"}).status_code == 422

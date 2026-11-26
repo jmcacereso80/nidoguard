@@ -122,11 +122,12 @@ def new_photo(asset_id: uuid.UUID, body: PhotoIn, org: Organization = Depends(cu
     ext = ALLOWED_TYPES.get(body.content_type)
     if not ext:
         raise HTTPException(422, "Formato de foto no permitido. Usa JPG, PNG, WEBP o HEIC.")
-    if body.kind == "equipo":
-        n = db.scalar(select(func.count()).select_from(AssetImage).where(
-            AssetImage.asset_id == a.id, AssetImage.kind == "equipo"))
-        if n >= 2:
-            raise HTTPException(422, "Puedes subir hasta 2 fotos del equipo.")
+    n = db.scalar(select(func.count()).select_from(AssetImage).where(
+        AssetImage.asset_id == a.id, AssetImage.kind == body.kind))
+    if body.kind == "equipo" and n >= 2:
+        raise HTTPException(422, "Puedes subir hasta 2 fotos del equipo.")
+    if body.kind == "placa" and n >= 2:
+        raise HTTPException(422, "Puedes subir hasta 2 fotos de la placa.")
     img_id = uuid.uuid4()
     key = f"org/{org.id}/assets/{a.id}/{img_id}.{ext}"
     db.add(AssetImage(id=img_id, asset_id=a.id, organization_id=org.id, kind=body.kind,

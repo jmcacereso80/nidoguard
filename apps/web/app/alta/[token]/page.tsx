@@ -10,6 +10,7 @@ import { putWithProgress, sleep, Upload } from "@/lib/upload";
 import { RetakePhoto } from "@/components/RetakePhoto";
 
 type Created = { id: string; upload?: Upload };
+type AssetLite = { status: string; name: string; brand: string | null; model: string | null; serial: string | null; extra?: { nombre_pendiente?: boolean } | null };
 type Stage = "form" | "subiendo" | "leyendo" | "listo" | "error_foto";
 
 const LAST_SPACE = "ng:last-space";
@@ -40,6 +41,7 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
   const [pct, setPct] = useState(0);
   const [upErr, setUpErr] = useState<string | null>(null);
   const [finalStatus, setFinalStatus] = useState<string>("");
+  const [resultAsset, setResultAsset] = useState<AssetLite | null>(null);
   const [sinFoto, setSinFoto] = useState(false);
 
   const camRef = useRef<HTMLInputElement>(null);   // abre la camara directamente
@@ -79,12 +81,19 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
   }
 
   // Revisa el estado cada 2.5 s hasta que la lectura termine (maximo ~2 minutos).
+  // Vuelve a leer el equipo despues de agregar una foto y muestra el resultado nuevo.
+  async function refrescar(id: string) {
+    const a = await api<AssetLite>(`/assets/${id}`);
+    setResultAsset(a); setFinalStatus(a.status); setStage("listo");
+    qc.invalidateQueries({ queryKey: ["assets"] });
+  }
+
   async function esperarLectura(id: string) {
     for (let i = 0; i < 48; i++) {
       await sleep(2500);
-      const a = await api<{ status: string }>(`/assets/${id}`);
+      const a = await api<AssetLite>(`/assets/${id}`);
       if (!STILL_READING.includes(a.status)) {
-        setFinalStatus(a.status); setStage("listo");
+        setResultAsset(a); setFinalStatus(a.status); setStage("listo");
         qc.invalidateQueries({ queryKey: ["pending"] });
         return;
       }
@@ -149,6 +158,9 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
         <p className="text-sm text-muted">Estamos leyendo la marca, el modelo y la serie. Suele tardar menos de un minuto.</p>
         <p className="text-sm text-muted">Puedes esperar aquí o ir al inicio. Te aparecerá en <b>Por confirmar</b> cuando termine.</p>
       </Card>
+      {assetId && (
+        <div className="mt-4"><RetakePhoto kind="equipo" assetId={assetId} onDone={() => refrescar(assetId)} /></div>
+      )}
       <Link href="/inicio" className="btn btn-ghost mt-4 w-full">Ir al inicio</Link>
     </Shell>
   );
@@ -177,11 +189,11 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
           <p className={`text-lg font-extrabold ${toneClass}`}>{info.label}</p>
           <p className="text-sm text-muted">{info.detail}</p>
         </Card>
-        {finalStatus === "necesita_foto" && assetId && (
-          <div className="mt-4"><RetakePhoto assetId={assetId} onDone={(st) => setFinalStatus(st)} /></div>
+        {assetId && resultAsset && (!resultAsset.model || resultAsset.extra?.nombre_pendiente || finalStatus === "faltan_datos") && (
+          <div className="mt-4"><RetakePhoto kind="equipo" assetId={assetId} onDone={() => refrescar(assetId)} /></div>
         )}
-        {(finalStatus === "necesita_foto" || finalStatus === "faltan_datos") && assetId && (
-          <div className="mt-4"><RetakePhoto kind="equipo" assetId={assetId} onDone={(st) => setFinalStatus(st)} /></div>
+        {assetId && resultAsset && (!resultAsset.serial || finalStatus === "necesita_foto") && (
+          <div className="mt-4"><RetakePhoto assetId={assetId} onDone={() => refrescar(assetId)} /></div>
         )}
         <Card className="mt-4 flex flex-col gap-2">
           <p className="font-extrabold text-ink">¿Qué sigue?</p>
