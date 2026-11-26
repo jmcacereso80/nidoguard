@@ -168,7 +168,9 @@ def test_reader_gets_plate_and_product_photos_together(make_client, db):
     _, _, extra = cap.calls[0]
     assert extra is not None and len(extra) == 1 and extra[0][1] == "image/jpeg" and extra[0][2] == "equipo"
     assert c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"}).status_code == 200
-    assert c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"}).status_code == 422
+    # una tercera foto del equipo reemplaza a la mas vieja: siguen siendo 2
+    assert c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"}).status_code == 200
+    assert db.query(AssetImage).filter_by(asset_id=a["id"], kind="equipo").count() == 2
 
 
 def test_serial_only_plate_keeps_serial_and_can_be_completed(make_client, db):
