@@ -55,3 +55,9 @@ def make_client(db):
         return TestClient(app, headers={"x-forwarded-for": ip})
     yield _make
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def no_background_reading(monkeypatch):
+    from app.services import readings
+    monkeypatch.setattr(readings, "enqueue_reading", lambda *a, **k: None)
