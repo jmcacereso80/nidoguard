@@ -36,8 +36,8 @@ export default function ClaimKit({ params }: { params: Promise<{ code: string }>
     <Shell title="¡Kit activado!">
       <Card>
         <p className="text-lg font-extrabold text-ink">Tienes {kit.tags_total} etiquetas listas.</p>
-        <p className="mt-1 text-muted">Escanea una, toma la foto de la placa del equipo y listo.</p>
-        <button className="btn btn-copper mt-4 w-full" onClick={() => router.push("/escanear")}>Empezar a registrar</button>
+        <p className="mt-1 text-muted">Pega una etiqueta en tu equipo, escanéala y toma la foto de su placa.</p>
+        <button className="btn btn-copper mt-4 w-full" onClick={() => router.push("/escanear")}>Agregar mi primer equipo</button>
       </Card>
     </Shell>
   );

@@ -5,7 +5,7 @@ Uso:  python -m admin.gen_batch --name "Lote 1" --kits 100 --tags-per-kit 20 --o
 Salidas (los codigos en claro solo existen en estos archivos, nunca en la base):
   kits.csv      codigo de activacion, codigo corto y URL del QR de cada kit
   etiquetas.csv URL /t/<token> de cada etiqueta, para grabar el NFC
-  hojas.pdf     una hoja por kit con su QR y el codigo corto
+  hojas.pdf     por kit: una hoja de activacion (QR y codigo corto) y una hoja con el QR de cada etiqueta
 """
 import argparse
 import csv
@@ -57,7 +57,10 @@ def write_files(out: str, kit_rows, tag_rows):
         w.writerows(tag_rows)
     c = canvas.Canvas(os.path.join(out, "hojas.pdf"), pagesize=A4)
     W, H = A4
-    for _, code, short, _url in kit_rows:
+    tags_by_kit: dict[str, list[tuple[str, str]]] = {}
+    for kit_id, token, url in tag_rows:
+        tags_by_kit.setdefault(kit_id, []).append((token, url))
+    for kit_id, code, short, _url in kit_rows:
         # El QR lleva solo el codigo corto que se imprime debajo (D-004 actualizado).
         img = qrcode.make(short)
         buf = io.BytesIO()
@@ -73,7 +76,31 @@ def write_files(out: str, kit_rows, tag_rows):
         c.setFont("Helvetica", 10)
         c.drawCentredString(W / 2, 50, "nidoguard.com")
         c.showPage()
+        # Hoja de etiquetas del kit: un QR por etiqueta (el iPhone no lee NFC desde la web).
+        _draw_tag_sheet(c, W, H, short, tags_by_kit.get(kit_id, []))
+        c.showPage()
     c.save()
+
+
+def _draw_tag_sheet(c, W, H, short: str, tags: list[tuple[str, str]]):
+    """Una hoja con los QR de las etiquetas del kit, 4 columnas, con su numero."""
+    cols, size, gap_x, gap_y = 4, 100, 30, 34
+    x0 = (W - (cols * size + (cols - 1) * gap_x)) / 2
+    top = H - 110
+    c.setFont("Helvetica-Bold", 18)
+    c.drawCentredString(W / 2, H - 70, "Etiquetas de tu kit")
+    c.setFont("Helvetica", 11)
+    c.drawCentredString(W / 2, H - 90, f"Kit {short}. Pega una etiqueta en cada equipo y escanéala desde la app.")
+    for i, (_token, url) in enumerate(tags):
+        r, col = divmod(i, cols)
+        x = x0 + col * (size + gap_x)
+        y = top - (r + 1) * (size + gap_y) + gap_y
+        buf = io.BytesIO()
+        qrcode.make(url).save(buf, format="PNG")
+        buf.seek(0)
+        c.drawImage(ImageReader(buf), x, y, size, size)
+        c.setFont("Helvetica", 9)
+        c.drawCentredString(x + size / 2, y - 12, f"Etiqueta {i + 1}")
 
 
 def main():

@@ -24,6 +24,7 @@ export default function Inicio() {
 
   const used = kits.data?.reduce((n, k) => n + k.tags_used, 0) ?? 0;
   const total = kits.data?.reduce((n, k) => n + k.tags_total, 0) ?? 0;
+  const free = total - used;  // etiquetas todavia sin equipo
   return (
     <Shell title="NidoGuard" nav="inicio">
       <div className="absolute right-4 top-6"><UserButton /></div>
@@ -47,8 +48,16 @@ export default function Inicio() {
         </div>
       </div>
       <div className="mt-3 flex flex-col gap-3">
-        {total > 0 && <Link href="/escanear" className="btn btn-copper w-full">Escanear una etiqueta</Link>}
-        <Link href="/k/activar" className="btn btn-ghost w-full">Activar un kit</Link>
+        {total === 0 && (
+          <Link href="/k/activar" className="btn btn-copper w-full">Activar tu kit</Link>
+        )}
+        {free > 0 && (
+          <Link href="/escanear" className="btn btn-copper w-full">
+            Agregar un equipo <span className="ml-1 opacity-80">· te quedan {free} {free === 1 ? "etiqueta" : "etiquetas"}</span>
+          </Link>
+        )}
+        {total > 0 && <p className="text-center text-xs text-muted">Escanea la etiqueta que va pegada al equipo, no la hoja del kit.</p>}
+        {total > 0 && <Link href="/k/activar" className="btn btn-ghost w-full">Activar otro kit</Link>}
       </div>
       {!!pending.data?.length && (
         <>
