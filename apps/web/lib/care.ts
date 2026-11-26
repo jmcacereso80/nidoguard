@@ -3,9 +3,10 @@
 // El manual de uso lo busca la IA por marca y modelo; la persona no tiene que subirlo.
 export type ManualStatus = "listo" | "buscando" | "no_encontrado";
 export type ManualItem = { id: string; title: string; note: string | null; url: string | null; status: ManualStatus };
-export type WarrantyInfo = { ends_on: string; provider: string | null; confirmed: boolean; estimated?: boolean };
+export type WarrantyInfo = { ends_on: string; provider: string | null; price?: number | null; confirmed: boolean; estimated?: boolean; document_id?: string };
+export type WarrantyPending = { document_id: string; filename: string };
 export type InvoiceInfo = { id: string; uploaded_at: string; name: string };
-export type DocumentsData = { manuals: ManualItem[]; warranty: WarrantyInfo | null; invoice: InvoiceInfo | null };
+export type DocumentsData = { manuals: ManualItem[]; warranty: WarrantyInfo | null; warranty_pending?: WarrantyPending | null; invoice: InvoiceInfo | null };
 
 export type CareSource = "manual" | "sugerencia";
 export type Unit = "dia" | "semana" | "mes" | "anio";

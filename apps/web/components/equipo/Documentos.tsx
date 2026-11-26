@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@/components/Icon";
 import { ApiError, useApi } from "@/lib/api";
-import { DocumentsData, warrantyView } from "@/lib/care";
+import { DocumentsData, WarrantyInfo, WarrantyPending, warrantyView } from "@/lib/care";
 
 export function useDocumentos(id: string) {
   const api = useApi();
@@ -58,23 +58,18 @@ export function Documentos({ id }: { id: string }) {
 
       <section>
         <Titulo>Garantía</Titulo>
-        {w ? (<>
-          <div className="g flex items-center gap-3 rounded-[22px] p-3.5">
-            <span className="icon-tile"><Icon name="shield" size={20} /></span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-extrabold">Garantía del fabricante</p>
-              <p className="text-[13px] text-muted">{w.text}</p>
-            </div>
-            <span className={`chip ${TONE[w.tone]}`}><Icon name="clock" size={13} stroke={2.4} />{w.badge}</span>
-          </div>
+        {data?.warranty && (<>
+          <FormaGarantia id={id} pendiente={{ document_id: data.warranty.document_id ?? "", filename: "" }} actual={data.warranty} />
           <div className="g -mt-1 flex items-center gap-2 rounded-[22px] px-3.5 py-2">
             <span className="flex-1 text-[12.5px] text-muted">¿Cambió? Sube la nueva garantía</span>
             <Subir id={id} kind="garantia" compact />
           </div>
-        </>) : (
+        </>)}
+        {!data?.warranty && data?.warranty_pending && <FormaGarantia id={id} pendiente={data.warranty_pending} />}
+        {!data?.warranty && !data?.warranty_pending && (
           <div className="g rounded-[22px] p-4">
             <p className="text-[15px] font-extrabold">Aún no hay garantía</p>
-            <p className="mt-0.5 text-[13px] text-muted">Sube una foto o el PDF de tu garantía. Leemos las fechas y tú las confirmas.</p>
+            <p className="mt-0.5 text-[13px] text-muted">Sube una foto o el PDF de tu garantía y escribe la fecha en que vence.</p>
             <Subir id={id} kind="garantia" />
           </div>
         )}
@@ -118,7 +113,7 @@ function Subir({ id, kind, compact = false }: { id: string; kind: "garantia" | "
       if (!put.ok) throw new Error("No pudimos subir el archivo. Inténtalo de nuevo.");
       await api(`/assets/${id}/documents/${document_id}/process`, { method: "POST" });
       qc.invalidateQueries({ queryKey: ["documents", id] });
-      setMsg("Listo. Estamos leyendo el documento y te pediremos confirmar los datos.");
+      setMsg(kind === "garantia" ? "Listo. Ahora escribe la fecha en que vence tu garantía." : "Factura guardada.");
     } catch (x) {
       setMsg(x instanceof ApiError && (x.status === 404 || x.status === 501) ? "Muy pronto podrás guardarla aquí." : (x as Error).message);
     } finally { setBusy(false); }
@@ -140,5 +135,64 @@ function Subir({ id, kind, compact = false }: { id: string; kind: "garantia" | "
       {busy && <p className="mt-2 text-[12.5px] text-muted">Subiendo…</p>}
       {msg && <p role="status" className="mt-2 text-[12.5px] text-muted">{msg}</p>}
     </div>
+  );
+}
+
+// Garantia: la persona escribe la fecha de vencimiento (y proveedor y precio si los tiene). El documento queda de respaldo.
+function FormaGarantia({ id, pendiente, actual }: { id: string; pendiente: WarrantyPending; actual?: WarrantyInfo }) {
+  const api = useApi(); const qc = useQueryClient();
+  const [editando, setEditando] = useState(!actual);
+  const [fecha, setFecha] = useState(actual?.ends_on ?? "");
+  const [proveedor, setProveedor] = useState(actual?.provider ?? "");
+  const [precio, setPrecio] = useState(actual?.price != null ? String(actual.price) : "");
+  const [msg, setMsg] = useState<string | null>(null); const [busy, setBusy] = useState(false);
+  const docId = actual?.document_id ?? pendiente.document_id;
+
+  async function guardar(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setMsg(null);
+    try {
+      await api(`/assets/${id}/warranty`, { method: "POST", body: JSON.stringify({
+        document_id: docId, ends_on: fecha, provider: proveedor.trim() || null,
+        price: precio.trim() ? Number(precio) : null }) });
+      setEditando(false);
+      qc.invalidateQueries({ queryKey: ["documents", id] });
+    } catch (x) { setMsg((x as Error).message); } finally { setBusy(false); }
+  }
+
+  if (!editando && actual) {
+    const v = warrantyView(actual);
+    return (
+      <div className="g mb-2 flex items-center gap-3 rounded-[22px] p-3.5">
+        <span className="icon-tile"><Icon name="shield" size={20} /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-extrabold">Garantía del fabricante</p>
+          <p className="text-[13px] text-muted">{actual.provider ? `${actual.provider} · ` : ""}{v.text}</p>
+          {actual.price != null && <p className="text-[13px] text-muted">Precio de compra: ${actual.price.toLocaleString("es-MX")} MXN</p>}
+        </div>
+        <span className={`chip ${TONE[v.tone]}`}><Icon name="clock" size={13} stroke={2.4} />{v.badge}</span>
+        <button type="button" className="btn-ghost h-10 px-3 text-[14px] font-bold" onClick={() => setEditando(true)}>Editar</button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={guardar} className="g mb-2 flex flex-col gap-3 rounded-[22px] p-4">
+      <p className="text-[15px] font-extrabold">{actual ? "Corrige los datos de tu garantía" : "Escribe la fecha de vencimiento"}</p>
+      <p className="text-[13px] text-muted">Tu documento queda guardado como respaldo.</p>
+      <label className="flex flex-col gap-1 text-[13px] font-bold text-navy">Vence el
+        <input type="date" className="field" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
+      </label>
+      <label className="flex flex-col gap-1 text-[13px] font-bold text-navy">Proveedor o tienda (opcional)
+        <input className="field" value={proveedor} onChange={(e) => setProveedor(e.target.value)} placeholder="Ej. Liverpool" maxLength={200} />
+      </label>
+      <label className="flex flex-col gap-1 text-[13px] font-bold text-navy">Precio de compra en pesos (opcional)
+        <input type="number" min={0} step="0.01" className="field" value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder="Ej. 8500" />
+      </label>
+      <div className="flex gap-2.5">
+        <button className="btn h-11 flex-1 text-[14px] font-bold" disabled={busy || !fecha}>{busy ? "Guardando…" : "Guardar garantía"}</button>
+        {actual && <button type="button" className="btn-ghost h-11 px-4 text-[14px] font-bold" onClick={() => setEditando(false)}>Cancelar</button>}
+      </div>
+      {msg && <p role="alert" className="text-[12.5px] font-semibold text-[var(--ng-danger)]">{msg}</p>}
+    </form>
   );
 }
