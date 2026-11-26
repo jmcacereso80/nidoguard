@@ -8,6 +8,7 @@ import re
 import unicodedata
 import uuid
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse
 
 import httpx
 from prefect import flow, task
@@ -23,6 +24,7 @@ log = logging.getLogger("nidoguard.manuales")
 MAX_PDF_BYTES = 50 * 1024 * 1024
 RETRY_AFTER = timedelta(hours=24)
 STALE_AFTER = timedelta(minutes=20)  # una busqueda "buscando" sin avance se considera caida
+MANUAL_WORDS = ("manual", "instrucc", "guia", "guide", "usuario", "user")
 SKIP_DOMAINS = ("amazon.", "mercadolibre.", "ebay.", "walmart.", "aliexpress.", "scribd.", "pdfcoffee.")
 
 
@@ -56,20 +58,27 @@ def ensure_search(db: Session, brand: str, model: str) -> str | None:
     return key
 
 
-def ordenar_candidatos(candidatos: list[tuple[str, str]], brand: str) -> list[tuple[str, str]]:
-    """Primero los PDF del sitio de la marca; se descartan tiendas de venta y paginas sin manual."""
-    marca = norm(brand)
+def _es_pdf(url: str) -> bool:
+    return urlparse(url).path.lower().endswith(".pdf")  # ignora ?context=... de los sitios de la marca
+
+
+def ordenar_candidatos(candidatos: list[tuple[str, str]], brand: str, model: str = "") -> list[tuple[str, str]]:
+    """PDF del sitio de la marca primero, con el modelo exacto; se descartan tiendas y paginas de listado."""
+    marca, modelo = norm(brand), norm(model)
+    modelo_corto = modelo[:9] if len(modelo) >= 9 else modelo  # el modelo completo casi nunca aparece igual en la URL
 
     def puntaje(c: tuple[str, str]) -> int:
-        url, title = c[0].lower(), (c[1] or "").lower()
+        url, title = c[0], (c[1] or "")
+        url_l, title_l, n_url = url.lower(), title.lower(), norm(url + " " + title)
         s = 0
-        if url.endswith(".pdf"): s += 2
-        if any(p in url or p in title for p in ("manual", "guide", "guia", "user", "usuario")): s += 2
+        if _es_pdf(url): s += 3
+        if any(p in url_l or p in title_l for p in ("manual", "guide", "guia", "user", "usuario", "instrucc")): s += 2
         if marca and marca in norm(url): s += 3  # el dominio o la ruta es de la marca
-        if any(d in url for d in SKIP_DOMAINS): s -= 10
+        if modelo_corto and modelo_corto in n_url: s += 4  # el manual es de este modelo
         return -s
     sin_tiendas = [c for c in candidatos if not any(d in c[0].lower() for d in SKIP_DOMAINS)]
-    filtrados = [c for c in sin_tiendas if c[0].lower().endswith(".pdf") or "manual" in c[0].lower()]
+    # Solo PDF que digan ser manual o instrucciones (una ficha comercial no sirve como manual).
+    filtrados = [c for c in sin_tiendas if _es_pdf(c[0]) and any(w in norm(c[0] + " " + (c[1] or "")) for w in MANUAL_WORDS)]
     return sorted(filtrados, key=puntaje)
 
 
@@ -80,10 +89,12 @@ def buscar_candidatos(brand: str, model: str) -> list[tuple[str, str]]:
     client = anthropic.Anthropic(api_key=s.claude_key)
     resp = client.messages.create(
         model=s.plate_model, max_tokens=1200,
-        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}],
         messages=[{"role": "user", "content":
-                   f"Busca el manual de uso oficial en PDF del fabricante para {brand} modelo {model}. "
-                   "Prefiere el sitio oficial de la marca. Responde con una lista corta de enlaces directos."}],
+                   f"Busca el manual de uso en PDF del modelo EXACTO {model} de {brand} "
+                   "(si el modelo tiene una O o un cero al final, busca con ambas grafías). "
+                   "No sirve el manual de otro modelo parecido. Prefiere el sitio oficial de la marca. "
+                   "Responde con una lista corta de enlaces directos."}],
     )
     urls: list[tuple[str, str]] = []
     for bloque in resp.content:
@@ -102,12 +113,28 @@ def descargar_pdf(url: str) -> bytes | None:
     return r.content
 
 
+def canon_modelo(texto: str) -> str:
+    """Igual que norm, pero O y 0 cuentan igual (en las etiquetas se confunden)."""
+    return norm(texto).replace("o", "0")
+
+
+def _es_del_modelo(c: tuple[str, str], model: str) -> bool:
+    modelo = canon_modelo(model)
+    corto = modelo[:9] if len(modelo) >= 9 else modelo
+    return bool(corto) and corto in canon_modelo(c[0] + " " + (c[1] or ""))
+
+
 def buscar_y_guardar(db: Session, key: str, brand: str, model: str, candidatos_fn, descargar_fn, storage: Storage) -> str:
     """Nucleo del flujo (sin Prefect para poder probarlo). Devuelve el estado final."""
     row = db.scalar(select(ModelKnowledge).where(ModelKnowledge.model_key == key))
     estado, detalle = "no_encontrado", "sin manual valido en los enlaces encontrados"
     try:
-        for url, titulo in ordenar_candidatos(candidatos_fn(brand, model), brand)[:3]:
+        # Solo manuales del modelo exacto: un manual de un modelo parecido puede no servir.
+        exactos = [c for c in ordenar_candidatos(candidatos_fn(brand, model), brand, model)
+                   if _es_del_modelo(c, model)]
+        if not exactos:
+            detalle = "no hay manual del modelo exacto en los enlaces encontrados"
+        for url, titulo in exactos[:8]:
             try:
                 data = descargar_fn(url)
             except Exception as e:  # un enlace roto no detiene la busqueda

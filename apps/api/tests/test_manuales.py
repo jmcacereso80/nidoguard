@@ -29,11 +29,11 @@ def test_guarda_copia_del_primer_pdf_real_y_registra_la_corrida(db):
     db.add(ModelKnowledge(model_key=key, brand="Mabe", model="LMA7120", status="buscando", attempts=0))
     db.commit()
     kst = KStorage()
-    def candidatos(b, m): return [("https://www.mabe.com.mx/a.pdf", "Manual Mabe"), ("https://www.mabe.com.mx/b.pdf", "Otro")]
-    def descargar(url): return None if url.endswith("a.pdf") else PDF  # el primero no responde un PDF
+    def candidatos(b, m): return [("https://www.mabe.com.mx/lma7120/manual-a.pdf", "Manual Mabe"), ("https://www.mabe.com.mx/lma7120/manual-b.pdf", "Otro")]
+    def descargar(url): return None if url.endswith("manual-a.pdf") else PDF  # el primero no responde un PDF
     estado = manuales.buscar_y_guardar(db, key, "Mabe", "LMA7120", candidatos, descargar, kst)
     row = db.query(ModelKnowledge).filter_by(model_key=key).one()
-    assert estado == "listo" and row.status == "listo" and row.source_url.endswith("b.pdf")
+    assert estado == "listo" and row.status == "listo" and row.source_url.endswith("manual-b.pdf")
     assert row.storage_key in kst.objects and kst.objects[row.storage_key] == PDF
     assert db.query(ModelResearchRun).filter_by(model_key=key, status="listo").count() == 1
 
