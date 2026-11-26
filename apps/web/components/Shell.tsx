@@ -12,6 +12,7 @@ export function Shell({ title, back, nav, children }: { title?: string; back?: s
         <h1 className="text-[28px] font-extrabold leading-tight tracking-tight text-ink">{title ?? "NidoGuard"}</h1>
       </header>
       {children}
+      <p className="mt-8 text-center text-[10px] tracking-wide text-muted/60">NidoGuard · {process.env.NEXT_PUBLIC_APP_VERSION ?? "sin versión"}</p>
       {nav && <BottomNav active={nav} />}
     </main>
   );
