@@ -26,7 +26,8 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const camRef = useRef<HTMLInputElement>(null);   // abre la camara directamente
+  const pickRef = useRef<HTMLInputElement>(null);  // abre galeria o archivos
 
   useEffect(() => { const s = sessionStorage.getItem(LAST_SPACE); if (s) setSpaceId(s); }, []);
   const adding = spaceId === "__nueva";
@@ -58,10 +59,16 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
         <Card>
           <p className="font-extrabold text-ink">1. Foto de la placa</p>
           <p className="text-sm text-muted">Es la etiqueta con marca, modelo y serie, casi siempre en la parte de atrás o dentro de la puerta.</p>
-          <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          <button type="button" className="btn btn-copper mt-3 w-full" onClick={() => fileRef.current?.click()}>
-            {file ? "Cambiar foto" : "Tomar foto"}
-          </button>
+          <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          <input ref={pickRef} type="file" accept="image/*" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" className="btn btn-copper w-full" onClick={() => camRef.current?.click()}>
+              Tomar foto
+            </button>
+            <button type="button" className="btn btn-ghost w-full" onClick={() => pickRef.current?.click()}>
+              Subir foto
+            </button>
+          </div>
           {file && <p className="mt-2 text-sm font-semibold text-[var(--ng-ok)]">Foto lista</p>}
         </Card>
         <Card className="flex flex-col gap-3">
