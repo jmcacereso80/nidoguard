@@ -169,3 +169,24 @@ def test_reader_gets_plate_and_product_photos_together(make_client, db):
     assert extra is not None and len(extra) == 1 and extra[0][1] == "image/jpeg" and extra[0][2] == "equipo"
     assert c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"}).status_code == 200
     assert c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"}).status_code == 422
+
+
+def test_serial_only_plate_keeps_serial_and_can_be_completed(make_client, db):
+    import uuid
+    from app.models import AssetImage
+    from app.services.plate_reader import Field_
+    from app.services.readings import process_reading
+    from tests.test_fase5 import Fake, Store, ext
+    app.dependency_overrides[get_storage] = lambda: FakeStorage()
+    c, tokens = setup(make_client, db)
+    a = c.post("/assets", json={"tag_token": tokens[0], "new_space_name": "Cocina",
+                                "plate_content_type": "image/jpeg"}).json()
+    img = db.query(AssetImage).filter_by(asset_id=a["id"]).one()
+    solo_serie = ext(brand=(None, 0), model=(None, 0)).model_copy(
+        update={"suggested_name": None, "serial": Field_(value="SN123", confidence=.9)})
+    r = process_reading(db, Store(), uuid.UUID(a["id"]), img.id, Fake("haiku", solo_serie), None)
+    assert r.status.value == "faltan_datos" and r.fields["serial"] == "SN123"
+    assert c.post(f"/assets/{a['id']}/confirm", json={}).status_code == 422        # falta el nombre
+    assert c.patch(f"/assets/{a['id']}", json={"name": "Estufa"}).status_code == 200
+    ok = c.post(f"/assets/{a['id']}/confirm", json={})
+    assert ok.status_code == 200 and ok.json()["serial"] == "SN123" and ok.json()["status"] == "completo"

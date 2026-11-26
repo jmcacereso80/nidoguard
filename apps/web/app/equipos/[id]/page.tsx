@@ -127,10 +127,10 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
 
           {a.status !== "completo" && <RetakePhoto assetId={id} onDone={() => refresh()} />}
 
-          {a.status === "por_confirmar" && a.reading && (
+          {(a.status === "por_confirmar" || a.status === "faltan_datos") && a.reading && (
             <Card className="flex flex-col gap-3">
               <p className="font-extrabold text-ink">Datos leídos de la placa</p>
-              <p className="text-sm text-muted">Los leyó la IA. Revísalos: si algo está mal, corrígelo abajo antes de confirmar.</p>
+              <p className="text-sm text-muted">Los leyó la IA. Revísalos; si algo falta o está mal, complétalo o corrígelo abajo. Puedes confirmar con lo que ya tienes.</p>
               <dl className="grid grid-cols-2 gap-y-2 text-sm">
                 {Object.entries(READ_LABEL).map(([k, label]) => (
                   <div key={k} className="contents"><dt className="text-muted">{label}</dt><dd className="font-semibold">{a.reading?.fields[k] ? String(a.reading.fields[k]) : "No se leyó"}</dd></div>

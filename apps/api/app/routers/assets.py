@@ -275,7 +275,8 @@ def confirm(asset_id: uuid.UUID, body: ConfirmIn, user: User = Depends(current_u
             org: Organization = Depends(current_org), db: Session = Depends(get_db)):
     a = _own(db, org, asset_id)
     r = _latest_reading(db, a.id)
-    base = dict(r.fields) if r and r.status == ReadingStatus.lista else {}
+    # Se confirma lo que se leyo, aunque falten datos (p. ej. solo la serie); lo demas se escribe a mano.
+    base = dict(r.fields) if r and r.status in (ReadingStatus.lista, ReadingStatus.faltan_datos) else {}
     edits = body.model_dump(exclude_none=True)
     name = edits.pop("name", None)
     _apply(a, {**base, **edits})
