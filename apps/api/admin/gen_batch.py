@@ -49,7 +49,7 @@ def write_files(out: str, kit_rows, tag_rows):
     os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "kits.csv"), "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["kit_id", "codigo", "codigo_corto", "url_qr"])
+        w.writerow(["kit_id", "codigo", "codigo_corto", "url_activacion"])
         w.writerows(kit_rows)
     with open(os.path.join(out, "etiquetas.csv"), "w", newline="") as f:
         w = csv.writer(f)
@@ -57,8 +57,9 @@ def write_files(out: str, kit_rows, tag_rows):
         w.writerows(tag_rows)
     c = canvas.Canvas(os.path.join(out, "hojas.pdf"), pagesize=A4)
     W, H = A4
-    for _, code, short, url in kit_rows:
-        img = qrcode.make(url)
+    for _, code, short, _url in kit_rows:
+        # El QR lleva solo el codigo corto que se imprime debajo (D-004 actualizado).
+        img = qrcode.make(short)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         buf.seek(0)
