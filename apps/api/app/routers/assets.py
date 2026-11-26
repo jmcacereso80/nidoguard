@@ -11,7 +11,7 @@ from ..models import (
     ReadingStatus, SmartTag, Space, Property, TagStatus, User,
 )
 from ..security import current_org, current_user
-from ..services import manuales, readings
+from ..services import care as care_service, manuales, readings
 from ..services.storage import ALLOWED_TYPES, MAX_BYTES, Storage, get_storage
 
 router = APIRouter(prefix="/assets", tags=["equipos"])
@@ -254,6 +254,7 @@ def edit_asset(asset_id: uuid.UUID, body: AssetEditIn, tasks: BackgroundTasks, u
     db.commit()
     if {"brand", "model"} & set(changes):
         manuales.pedir_manual(db, a, tasks)
+    tasks.add_task(care_service.prepare_in_background, a.id)
     return _out(a)
 
 
@@ -289,6 +290,7 @@ def manual_data(asset_id: uuid.UUID, body: ManualIn, tasks: BackgroundTasks, use
     _event(db, a, "datos_manuales", user, fields=list(data))
     db.commit()
     manuales.pedir_manual(db, a, tasks)
+    tasks.add_task(care_service.prepare_in_background, a.id)
     return _out(a)
 
 
@@ -313,12 +315,13 @@ def confirm(asset_id: uuid.UUID, body: ConfirmIn, tasks: BackgroundTasks, user: 
     _event(db, a, "confirmado", user)
     db.commit()
     manuales.pedir_manual(db, a, tasks)
+    tasks.add_task(care_service.prepare_in_background, a.id)
     return _out(a)
 
 
 @router.post("/confirm-bulk")
-def confirm_bulk(body: BulkIn, user: User = Depends(current_user), org: Organization = Depends(current_org),
-                 db: Session = Depends(get_db)):
+def confirm_bulk(body: BulkIn, tasks: BackgroundTasks, user: User = Depends(current_user),
+                 org: Organization = Depends(current_org), db: Session = Depends(get_db)):
     done, skipped = [], []
     for aid in body.ids:
         a = db.scalar(select(EquipmentAsset).where(EquipmentAsset.id == aid, EquipmentAsset.organization_id == org.id))
@@ -332,4 +335,6 @@ def confirm_bulk(body: BulkIn, user: User = Depends(current_user), org: Organiza
         _event(db, a, "confirmado", user, bulk=True)
         done.append(str(aid))
     db.commit()
+    for aid in done:
+        tasks.add_task(care_service.prepare_in_background, uuid.UUID(aid))
     return {"confirmed": done, "skipped": skipped}

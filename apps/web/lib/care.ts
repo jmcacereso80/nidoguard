@@ -86,3 +86,43 @@ export function dueLabel(nextDue: string, now: Date = new Date()): DueView {
   if (d === 1) return { text: "Toca mañana", tone: "normal" };
   return { text: `Próximo: ${corta}`, tone: "normal" };
 }
+
+// ---- Pantalla Cuidado del menú ----
+const DOW = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const isoOf = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+const parse = (iso: string) => new Date(`${iso}T00:00:00Z`);
+export function addDaysISO(iso: string, n: number): string { const d = parse(iso); d.setUTCDate(d.getUTCDate() + n); return isoOf(d); }
+
+export type WeekDay = { iso: string; dow: string; num: number };
+/** Los 7 días (lunes a domingo) de la semana de `todayISO`, movida `offset` semanas. */
+export function weekDays(todayISO: string, offset = 0): WeekDay[] {
+  const d = parse(todayISO);
+  const lunes = addDaysISO(todayISO, -((d.getUTCDay() + 6) % 7) + offset * 7);
+  return Array.from({ length: 7 }, (_, i) => { const iso = addDaysISO(lunes, i); const x = parse(iso); return { iso, dow: DOW[x.getUTCDay()], num: x.getUTCDate() }; });
+}
+export function monthLabel(iso: string): string {
+  const m = parse(iso).toLocaleDateString("es-MX", { month: "long", timeZone: "UTC" });
+  return `${m.charAt(0).toUpperCase()}${m.slice(1)} ${parse(iso).getUTCFullYear()}`;
+}
+/** "jueves 26 de noviembre" */
+export function longDate(iso: string): string {
+  return parse(iso).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).replace(",", "");
+}
+export function shortDate(iso: string): string {
+  return parse(iso).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).replace(/\./g, "");
+}
+
+export const PRIORITY_LABEL: Record<Priority, string> = { alta: "Prioridad alta", media: "Prioridad media", baja: "Prioridad baja" };
+/** Primer paso de las instrucciones, sin numeración. */
+export function firstStep(instructions: string | null): string | null {
+  const l = (instructions ?? "").split("\n").map((x) => x.replace(/^\s*(\d+[.)]|[-•*])\s*/, "").trim()).find(Boolean);
+  return l || null;
+}
+
+export type HouseholdTask = CareTask & { asset_id: string; asset_name: string; space_name: string | null };
+/** Vencidas: la fecha ya pasó. Próximas: hoy o después. Ambas ordenadas por fecha. */
+export function splitByDue(tasks: HouseholdTask[], todayISO: string): { overdue: HouseholdTask[]; upcoming: HouseholdTask[] } {
+  const by = (a: HouseholdTask, b: HouseholdTask) => (a.next_due ?? "").localeCompare(b.next_due ?? "") || a.title.localeCompare(b.title);
+  const ok = tasks.filter((t) => t.next_due);
+  return { overdue: ok.filter((t) => t.next_due! < todayISO).sort(by), upcoming: ok.filter((t) => t.next_due! >= todayISO).sort(by) };
+}

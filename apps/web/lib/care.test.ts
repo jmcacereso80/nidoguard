@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { daysLeft, warrantyView, showWarrantyAlert, everyLabel, everyShort, groupByFrequency, dueLabel } from "./care.ts";
+import { daysLeft, warrantyView, showWarrantyAlert, everyLabel, everyShort, groupByFrequency, dueLabel, weekDays, monthLabel, longDate, firstStep, splitByDue, addDaysISO } from "./care.ts";
 import type { CareTask, Every } from "./care.ts";
 
 const hoy = new Date(2026, 10, 25);
@@ -47,4 +47,29 @@ test("cuándo toca un cuidado", () => {
   assert.deepEqual(dueLabel("2026-11-25", hoy), { text: "Toca hoy", tone: "hoy" });
   assert.deepEqual(dueLabel("2026-11-26", hoy), { text: "Toca mañana", tone: "normal" });
   assert.deepEqual(dueLabel("2027-01-15", hoy), { text: "Próximo: 15 ene", tone: "normal" });
+});
+
+test("semana de lunes a domingo", () => {
+  const w = weekDays("2026-11-26");  // jueves
+  assert.deepEqual(w.map((d) => d.num), [23, 24, 25, 26, 27, 28, 29]);
+  assert.deepEqual(w.map((d) => d.dow), ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]);
+  assert.equal(weekDays("2026-11-29")[0].iso, "2026-11-23");  // domingo: su semana empieza el lunes anterior
+  assert.equal(weekDays("2026-11-26", 1)[0].iso, "2026-11-30");
+  assert.equal(weekDays("2026-11-26", -1)[6].iso, "2026-11-22");
+  assert.equal(addDaysISO("2026-12-31", 1), "2027-01-01");
+});
+test("textos de fecha", () => {
+  assert.equal(monthLabel("2026-11-26"), "Noviembre 2026");
+  assert.equal(longDate("2026-11-26"), "jueves 26 de noviembre");
+});
+test("primer paso de las instrucciones", () => {
+  assert.equal(firstStep("1. Apaga y desconecta el equipo.\n2. Saca el filtro"), "Apaga y desconecta el equipo.");
+  assert.equal(firstStep("- Lávalo"), "Lávalo");
+  assert.equal(firstStep(null), null);
+});
+test("vencidas y próximas", () => {
+  const mk = (id: string, d: string) => ({ id, title: id, detail: null, instructions: null, every: { n: 1, unit: "mes" as const }, next_due: d, source: "sugerencia" as const, done_at: null, asset_id: "a", asset_name: "A", space_name: null });
+  const r = splitByDue([mk("c", "2026-11-27"), mk("a", "2026-11-20"), mk("b", "2026-11-26")], "2026-11-26");
+  assert.deepEqual(r.overdue.map((t) => t.id), ["a"]);
+  assert.deepEqual(r.upcoming.map((t) => t.id), ["b", "c"]);
 });

@@ -2,7 +2,6 @@
 import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -10,18 +9,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import AssetStatus, CareRecord, CareTask, EquipmentAsset, Organization, Space, User
+from ..models import AssetStatus, CareRecord, CareTask, EquipmentAsset, Organization, Space, User, Warranty
 from ..security import current_org, current_user
-from ..services.care_planner import MAX_TASKS, CarePlanner, add_every, first_due, get_planner
+from ..services.care import SinCuidados, generate_for_asset, today_mx
+from ..services.care_planner import CarePlanner, add_every, get_planner
 from .assets import _event, _own
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["cuidados"])
-
-
-def today_mx() -> date:
-    """Hoy en la Ciudad de Mexico (el servidor puede estar en otra zona)."""
-    return datetime.now(ZoneInfo("America/Mexico_City")).date()
 
 
 class DoneIn(BaseModel):
@@ -70,33 +65,13 @@ def get_care(asset_id: uuid.UUID, org: Organization = Depends(current_org), db: 
 def generate_care(asset_id: uuid.UUID, user: User = Depends(current_user), org: Organization = Depends(current_org),
                   db: Session = Depends(get_db), planner: CarePlanner = Depends(get_planner)):
     """Prepara los cuidados del equipo. Es idempotente: si ya tiene cuidados (aunque haya descartado alguno), no vuelve a generar."""
-    _own(db, org, asset_id)
-    # Bloquea la fila del equipo para que dos llamadas a la vez no creen cuidados duplicados.
-    a = db.scalar(select(EquipmentAsset).where(EquipmentAsset.id == asset_id).with_for_update())
-    ya = db.scalar(select(CareTask.id).where(CareTask.asset_id == a.id).limit(1))
-    if ya:
-        return _care_out(a, _tasks(db, a.id))
+    a = _own(db, org, asset_id)
     try:
-        plan = planner.plan(a.category, a.name, a.brand, a.model)
-    except Exception:
+        generate_for_asset(db, a.id, planner, today_mx(), user.id)
+    except SinCuidados:
         log.exception("No se pudieron generar los cuidados del equipo %s", a.id)
-        db.rollback()
         raise HTTPException(503, "No pudimos preparar los cuidados ahora. Inténtalo de nuevo en unos minutos.")
-    hoy, vistos = today_mx(), set()
-    for it in plan.tasks:
-        clave = it.title.lower()
-        if clave in vistos or len(vistos) >= MAX_TASKS:
-            continue
-        vistos.add(clave)
-        db.add(CareTask(asset_id=a.id, organization_id=org.id, title=it.title[:200], detail=it.detail[:300] or None,
-                        instructions=it.instructions or None, every_n=it.every_n, every_unit=it.every_unit,
-                        priority=it.priority, source="sugerencia", status="sugerida",
-                        next_due=first_due(hoy, it.every_n, it.every_unit)))
-    if not vistos:
-        db.rollback()
-        raise HTTPException(503, "No pudimos preparar los cuidados ahora. Inténtalo de nuevo en unos minutos.")
-    _event(db, a, "cuidados_sugeridos", user, cantidad=len(vistos), modelo_ia=getattr(planner, "name", None))
-    db.commit()
+    db.refresh(a)
     return _care_out(a, _tasks(db, a.id))
 
 
@@ -166,3 +141,28 @@ def household_care(org: Organization = Depends(current_org), db: Session = Depen
         .order_by(CareTask.next_due, CareTask.title)).all()
     return {"today": today_mx().isoformat(),
             "tasks": [{**_task_out(t), "asset_id": str(a.id), "asset_name": a.name, "space_name": sp} for t, a, sp in rows]}
+
+
+@router.get("/care/warranties")
+def household_warranties(org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+    """Garantias confirmadas de todo el hogar, la que vence primero arriba. 'today' permite contar los dias que faltan."""
+    rows = db.execute(
+        select(Warranty, EquipmentAsset, Space.name).join(EquipmentAsset, EquipmentAsset.id == Warranty.asset_id)
+        .outerjoin(Space, Space.id == EquipmentAsset.space_id)
+        .where(Warranty.organization_id == org.id).order_by(Warranty.ends_on, EquipmentAsset.name)).all()
+    return {"today": today_mx().isoformat(),
+            "warranties": [{"asset_id": str(a.id), "asset_name": a.name, "space_name": sp,
+                            "ends_on": w.ends_on.isoformat(), "provider": w.provider} for w, a, sp in rows]}
+
+
+@router.get("/care/history")
+def care_history(limit: int = 50, org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+    """Cuidados que ya se hicieron, del mas reciente al mas antiguo."""
+    limit = max(1, min(limit, 200))
+    rows = db.execute(
+        select(CareRecord, CareTask.title, EquipmentAsset).join(CareTask, CareTask.id == CareRecord.task_id)
+        .join(EquipmentAsset, EquipmentAsset.id == CareRecord.asset_id)
+        .where(CareRecord.organization_id == org.id)
+        .order_by(CareRecord.done_on.desc(), CareRecord.created_at.desc()).limit(limit)).all()
+    return {"records": [{"id": str(r.id), "title": title, "done_on": r.done_on.isoformat(),
+                         "asset_id": str(a.id), "asset_name": a.name} for r, title, a in rows]}

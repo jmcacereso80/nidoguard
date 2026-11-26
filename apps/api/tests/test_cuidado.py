@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 
 from app.main import app
-from app.models import AssetStatus, EquipmentAsset
+from app.models import AssetStatus, EquipmentAsset, Warranty
 from app.services.care_planner import CareItem, CarePlan, add_every, first_due, get_planner
 from app.services.storage import get_storage
 from tests.test_crud_equipo import _register
@@ -168,3 +168,66 @@ def test_no_se_ven_cuidados_de_otro_hogar(caso, make_client, db):
         assert otro.post(f"/care/{t['id']}/{ruta}").status_code == 404
     assert otro.post(f"/care/{t['id']}/reschedule", json={"next_due": "2026-12-01"}).status_code == 404
     assert otro.get("/care").json()["tasks"] == []
+
+
+def test_garantias_del_hogar_y_historial(caso, db):
+    c, a, _, tokens = caso
+    from tests.test_documentos import JPEG, _subir
+    fs = FakeStorage(); app.dependency_overrides[get_storage] = lambda: fs
+    b = _register(c, tokens[1], name="Refrigerador", space="Cocina")
+    for asset, fecha in ((a, "2027-03-01"), (b, "2026-12-23")):
+        doc_id, _ = _subir(c, db, fs, asset["id"], "garantia", "g.jpg", "image/jpeg", JPEG)
+        assert c.post(f"/assets/{asset['id']}/warranty", json={"document_id": doc_id, "ends_on": fecha}).status_code == 200
+    g = c.get("/care/warranties").json()
+    assert g["today"] == "2026-11-26"
+    assert [(w["asset_name"], w["ends_on"]) for w in g["warranties"]] == [("Refrigerador", "2026-12-23"), ("Lavadora", "2027-03-01")]
+    assert g["warranties"][0]["space_name"] == "Cocina"
+    # historial: lo mas reciente primero
+    ts = c.post(f"/assets/{a['id']}/care/generate").json()["tasks"]
+    c.post(f"/care/{ts[0]['id']}/done", json={"done_on": "2026-11-20"})
+    c.post(f"/care/{ts[1]['id']}/done")
+    h = c.get("/care/history").json()["records"]
+    assert [r["done_on"] for r in h] == ["2026-11-26", "2026-11-20"] and h[0]["asset_name"] == "Lavadora"
+    assert c.get("/care/history?limit=1").json()["records"][0]["done_on"] == "2026-11-26"
+
+
+def test_garantias_e_historial_son_privados(caso, make_client):
+    c, a, _, _ = caso
+    t = c.post(f"/assets/{a['id']}/care/generate").json()["tasks"][0]
+    c.post(f"/care/{t['id']}/done")
+    otro = make_client(uid()); otro.post("/home", json={"name": "Otra casa"})
+    assert otro.get("/care/history").json()["records"] == []
+    assert otro.get("/care/warranties").json()["warranties"] == []
+
+
+def test_confirmar_equipo_prepara_cuidados_en_segundo_plano(caso, monkeypatch):
+    c, a, _, tokens = caso
+    lanzadas = []
+    monkeypatch.setattr("app.services.care.prepare_in_background", lambda aid: lanzadas.append(str(aid)))
+    r = c.post(f"/assets/{a['id']}/confirm", json={"brand": "LG", "model": "WA17"})
+    assert r.status_code == 200, r.text
+    assert lanzadas == [a["id"]]
+
+
+def test_segundo_plano_solo_con_equipo_confirmado_y_sin_error(caso, db, monkeypatch):
+    from app.services import care as svc
+    c, a, planner, _ = caso
+    monkeypatch.undo()  # quita el stub automatico
+    monkeypatch.setattr("app.services.care.SessionLocal", lambda: db)
+    monkeypatch.setattr("app.services.care.get_planner", lambda: planner)
+    monkeypatch.setattr("app.services.care.today_mx", lambda: HOY)
+    db.close = lambda: None
+    aid = uuid.UUID(a["id"])
+    svc.prepare_in_background(aid)  # registrado, no confirmado: no hace nada
+    assert planner.calls == 0
+    asset = db.get(EquipmentAsset, aid); asset.status = AssetStatus.completo; db.commit()
+    svc.prepare_in_background(aid)
+    assert planner.calls == 1 and len(c.get(f"/assets/{a['id']}/care").json()["tasks"]) == 4
+    svc.prepare_in_background(aid)  # ya tiene: no repite
+    assert planner.calls == 1
+    # si la IA falla, no revienta ni guarda nada
+    asset2 = _register(c, caso[3][2], name="Estufa", space="Cocina")
+    a2 = db.get(EquipmentAsset, uuid.UUID(asset2["id"])); a2.status = AssetStatus.completo; db.commit()
+    monkeypatch.setattr("app.services.care.get_planner", lambda: FakePlanner(fail=True))
+    svc.prepare_in_background(a2.id)
+    assert c.get(f"/assets/{asset2['id']}/care").json()["tasks"] == []

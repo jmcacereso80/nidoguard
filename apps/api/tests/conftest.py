@@ -68,3 +68,10 @@ def no_manual_search(monkeypatch):
     """Las pruebas nunca llaman a Apify ni a Claude para buscar manuales; cada prueba lo activa si lo necesita."""
     from app.services import manuales
     monkeypatch.setattr(manuales, "run_search", lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
+def no_background_care(monkeypatch):
+    """Las pruebas nunca preparan cuidados con Claude al confirmar un equipo; cada prueba lo activa si lo necesita."""
+    from app.services import care
+    monkeypatch.setattr(care, "prepare_in_background", lambda *a, **k: None)
