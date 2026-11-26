@@ -6,7 +6,7 @@ import { Shell, ErrorNote } from "@/components/Shell";
 import { Icon, equipmentIcon } from "@/components/Icon";
 import { useApi } from "@/lib/api";
 import {
-  HouseholdTask, PRIORITY_LABEL, SOURCE_LABEL, dueLabel, firstStep, longDate, monthLabel, shortDate, splitByDue, warrantyView, weekDays,
+  HouseholdTask, PRIORITY_LABEL, SOURCE_LABEL, dueLabel, firstStep, longDate, monthGrid, monthLabel, shortDate, splitByDue, warrantyView, weekDays,
 } from "@/lib/care";
 
 const TABS = ["Próximas", "Vencidas", "Garantías", "Historial"] as const;
@@ -20,7 +20,9 @@ const PRIO_STYLE = { alta: "!bg-[rgba(193,139,88,.24)] !text-[#8F5A1F]", media: 
 export default function Cuidado() {
   const api = useApi(); const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("Próximas");
+  const [vista, setVista] = useState<"semana" | "mes">("semana");
   const [semana, setSemana] = useState(0);
+  const [mes, setMes] = useState(0);
   const [dia, setDia] = useState<string | null>(null);
   const [resched, setResched] = useState<string | null>(null);
   const [fecha, setFecha] = useState("");
@@ -42,8 +44,22 @@ export default function Cuidado() {
   const today = todo.data?.today ?? new Date().toISOString().slice(0, 10);
   const { overdue, upcoming } = splitByDue(todo.data?.tasks ?? [], today);
   const dias = weekDays(today, semana);
+  const cuadricula = monthGrid(today, mes);
   const conTareas = new Set((todo.data?.tasks ?? []).map((t) => t.next_due));
   const lista = tab === "Vencidas" ? overdue : dia ? (todo.data?.tasks ?? []).filter((t) => t.next_due === dia) : upcoming;
+
+  function Dia({ iso, arriba, num, alto }: { iso: string; arriba?: string; num: number; alto: number }) {
+    const sel = dia === iso;
+    return (
+      <button type="button" aria-pressed={sel} aria-label={`${longDate(iso)}${conTareas.has(iso) ? ", con cuidados" : ""}`}
+        onClick={() => setDia(sel ? null : iso)} style={{ height: alto }}
+        className={`mx-auto flex w-[42px] flex-col items-center justify-center gap-[3px] rounded-[21px] ${sel ? "gd" : "text-ink"} ${iso === today && !sel ? "ring-1 ring-navy/40" : ""}`}>
+        {arriba && <span className={`text-[12px] font-semibold ${sel ? "text-white/90" : "text-muted"}`}>{arriba}</span>}
+        <span className="text-[17px] font-extrabold">{num}</span>
+        <span aria-hidden="true" className="h-[5px] w-[5px] rounded-full" style={{ background: conTareas.has(iso) ? "#C18B58" : "transparent" }} />
+      </button>
+    );
+  }
 
   return (
     <Shell title="Cuidado" subtitle="Lo que conviene hacer para que tus equipos duren más." big nav="cuidado">
@@ -56,27 +72,31 @@ export default function Cuidado() {
 
       {tab === "Próximas" && (
         <>
-          <div className="mt-4 flex items-center justify-between text-[14px] font-extrabold">
-            <span>{monthLabel(dias[3].iso)}</span>
-            <span className="flex gap-1.5 text-navy">
-              <button type="button" aria-label="Semana anterior" onClick={() => setSemana(semana - 1)} className="grid h-9 w-9 place-items-center rounded-full"><Icon name="back" size={20} /></button>
-              <button type="button" aria-label="Semana siguiente" onClick={() => setSemana(semana + 1)} className="grid h-9 w-9 place-items-center rounded-full"><span style={{ display: "inline-flex", transform: "rotate(180deg)" }}><Icon name="back" size={20} /></span></button>
+          <div className="mt-4 flex items-center justify-between gap-2 text-[14px] font-extrabold">
+            <span>{vista === "mes" ? cuadricula.label : monthLabel(dias[3].iso)}</span>
+            <span className="flex items-center gap-1.5 text-navy">
+              <span role="group" aria-label="Vista" className="g mr-1 flex rounded-full p-0.5" style={{ borderRadius: 999 }}>
+                {(["semana", "mes"] as const).map((v) => (
+                  <button key={v} type="button" aria-pressed={vista === v} onClick={() => setVista(v)}
+                    className={`h-8 rounded-full px-3 text-[12.5px] font-bold ${vista === v ? "gd" : ""}`} style={{ borderRadius: 999 }}>{v === "semana" ? "Semana" : "Mes"}</button>
+                ))}
+              </span>
+              <button type="button" aria-label={vista === "mes" ? "Mes anterior" : "Semana anterior"} onClick={() => (vista === "mes" ? setMes(mes - 1) : setSemana(semana - 1))} className="grid h-9 w-9 place-items-center rounded-full"><Icon name="back" size={20} /></button>
+              <button type="button" aria-label={vista === "mes" ? "Mes siguiente" : "Semana siguiente"} onClick={() => (vista === "mes" ? setMes(mes + 1) : setSemana(semana + 1))} className="grid h-9 w-9 place-items-center rounded-full"><span style={{ display: "inline-flex", transform: "rotate(180deg)" }}><Icon name="back" size={20} /></span></button>
             </span>
           </div>
-          <div className="g mt-2 flex justify-between rounded-[30px] px-1.5 py-1">
-            {dias.map((d) => {
-              const sel = dia === d.iso;
-              return (
-                <button key={d.iso} type="button" aria-pressed={sel} aria-label={`${longDate(d.iso)}${conTareas.has(d.iso) ? ", con cuidados" : ""}`}
-                  onClick={() => setDia(sel ? null : d.iso)}
-                  className={`flex h-[66px] w-[42px] flex-col items-center justify-center gap-[3px] rounded-[21px] ${sel ? "gd" : "text-ink"} ${d.iso === today && !sel ? "ring-1 ring-navy/40" : ""}`}>
-                  <span className={`text-[12px] font-semibold ${sel ? "text-white/90" : "text-muted"}`}>{d.dow}</span>
-                  <span className="text-[17px] font-extrabold">{d.num}</span>
-                  <span aria-hidden="true" className="h-[5px] w-[5px] rounded-full" style={{ background: conTareas.has(d.iso) ? "#C18B58" : "transparent" }} />
-                </button>
-              );
-            })}
-          </div>
+          {vista === "semana" ? (
+            <div className="g mt-2 flex justify-between rounded-[30px] px-1.5 py-1">
+              {dias.map((d) => <Dia key={d.iso} iso={d.iso} arriba={d.dow} num={d.num} alto={66} />)}
+            </div>
+          ) : (
+            <div className="g mt-2 rounded-[30px] px-2 py-2">
+              <div className="grid grid-cols-7 pb-1 text-center text-[12px] font-semibold text-muted">{["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((x) => <span key={x}>{x}</span>)}</div>
+              <div className="grid grid-cols-7 gap-y-0.5">
+                {cuadricula.cells.map((c, i) => c ? <Dia key={c.iso} iso={c.iso} num={c.num} alto={46} /> : <span key={`v${i}`} />)}
+              </div>
+            </div>
+          )}
           {dia && <button type="button" onClick={() => setDia(null)} className="mt-2 px-1 text-[13px] font-bold text-navy">Ver todas las próximas</button>}
         </>
       )}

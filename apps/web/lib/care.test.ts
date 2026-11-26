@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { daysLeft, warrantyView, showWarrantyAlert, everyLabel, everyShort, groupByFrequency, dueLabel, weekDays, monthLabel, longDate, firstStep, splitByDue, addDaysISO } from "./care.ts";
+import { daysLeft, warrantyView, showWarrantyAlert, everyLabel, everyShort, groupByFrequency, dueLabel, weekDays, monthLabel, longDate, firstStep, splitByDue, addDaysISO, monthGrid } from "./care.ts";
 import type { CareTask, Every } from "./care.ts";
 
 const hoy = new Date(2026, 10, 25);
@@ -72,4 +72,17 @@ test("vencidas y próximas", () => {
   const r = splitByDue([mk("c", "2026-11-27"), mk("a", "2026-11-20"), mk("b", "2026-11-26")], "2026-11-26");
   assert.deepEqual(r.overdue.map((t) => t.id), ["a"]);
   assert.deepEqual(r.upcoming.map((t) => t.id), ["b", "c"]);
+});
+
+test("cuadrícula del mes", () => {
+  const m = monthGrid("2026-11-26");  // noviembre 2026 empieza en domingo
+  assert.equal(m.label, "Noviembre 2026");
+  assert.equal(m.cells.length % 7, 0);
+  assert.equal(m.cells.slice(0, 6).every((c) => c === null), true);  // lunes a sábado vacíos
+  assert.equal(m.cells[6]?.iso, "2026-11-01");
+  assert.equal(m.cells.filter(Boolean).length, 30);
+  assert.equal(monthGrid("2026-11-26", 1).label, "Diciembre 2026");
+  assert.equal(monthGrid("2026-12-15", 1).label, "Enero 2027");
+  assert.equal(monthGrid("2026-01-31", -1).cells.filter(Boolean).length, 31);
+  assert.equal(monthGrid("2028-02-10").cells.filter(Boolean).length, 29);
 });

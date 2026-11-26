@@ -126,3 +126,15 @@ export function splitByDue(tasks: HouseholdTask[], todayISO: string): { overdue:
   const ok = tasks.filter((t) => t.next_due);
   return { overdue: ok.filter((t) => t.next_due! < todayISO).sort(by), upcoming: ok.filter((t) => t.next_due! >= todayISO).sort(by) };
 }
+
+export type MonthCell = { iso: string; num: number } | null;
+/** Cuadrícula del mes de `todayISO` movido `offset` meses: filas de lunes a domingo; los huecos van como null. */
+export function monthGrid(todayISO: string, offset = 0): { label: string; first: string; cells: MonthCell[] } {
+  const base = parse(todayISO);
+  const first = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + offset, 1));
+  const dias = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  const cells: MonthCell[] = Array((first.getUTCDay() + 6) % 7).fill(null);
+  for (let d = 1; d <= dias; d++) cells.push({ iso: isoOf(new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), d))), num: d });
+  while (cells.length % 7) cells.push(null);
+  return { label: monthLabel(isoOf(first)), first: isoOf(first), cells };
+}

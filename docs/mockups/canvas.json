@@ -172,12 +172,22 @@
    "title": "Expediente: Documentos, sin subir",
    "is_interactive": true,
    "radius": 44
+  },
+  "CuidadoMes.dc.html": {
+   "x": 1880,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Cuidado: vista de mes",
+   "is_interactive": true,
+   "radius": 44
   }
  },
  "order": [
   "Main.dc.html",
   "Equipos.dc.html",
   "Cuidado.dc.html",
+  "CuidadoMes.dc.html",
   "Servicios.dc.html",
   "Vacio.dc.html",
   "Escanear.dc.html",
@@ -200,7 +210,7 @@
    "y": -260,
    "text": "Pantallas principales",
    "kind": "title1",
-   "maxW": 1800
+   "maxW": 2270
   },
   "t2": {
    "x": 0,
