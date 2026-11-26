@@ -1,0 +1,15 @@
+/* Identidad NidoGuard: marino #183B56, azul #7399B5, cobre #C18B58, marfil #F6F2EC. Fuente Manrope. */
+:root {
+  --ng-navy: #183b56;
+  --ng-sky: #7399b5;
+  --ng-copper: #c18b58;
+  --ng-ivory: #f6f2ec;
+  --ng-ink: #12263a;
+  --ng-ok: #2f7d5b;
+  --ng-warn: #b4691f;
+  --ng-danger: #b3402f;
+  --ng-glass: rgba(255, 255, 255, 0.62);
+  --ng-glass-edge: rgba(255, 255, 255, 0.85);
+  --ng-radius: 22px;
+  --ng-shadow: 0 8px 30px rgba(24, 59, 86, 0.12);
+}
