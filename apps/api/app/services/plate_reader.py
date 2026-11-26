@@ -4,6 +4,9 @@ import io
 from typing import Protocol
 
 from PIL import Image, ImageOps
+from pillow_heif import register_heif_opener
+
+register_heif_opener()  # los iPhone guardan HEIC; Pillow solo no lo abre
 from pydantic import BaseModel, Field
 
 from ..config import get_settings
