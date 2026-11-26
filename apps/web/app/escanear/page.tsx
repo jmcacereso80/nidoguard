@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import jsQR from "jsqr";
 import { parseNidoUrl } from "@/lib/nidoUrl";
+import { AppVersion } from "@/components/AppVersion";
 import { Icon } from "@/components/Icon";
 import { Kit, Space, useApi } from "@/lib/api";
 
@@ -97,6 +98,7 @@ export default function Escanear() {
   return (
     <main className="fixed inset-0 overflow-hidden text-white" style={{ background: "radial-gradient(circle at 50% 30%, #0E3F66, #02264D 70%)" }}>
       <video ref={video} playsInline muted className="absolute inset-0 h-full w-full object-cover opacity-70" />
+      <AppVersion className="absolute inset-x-0 bottom-1 text-white/70" />
       <div className="absolute inset-x-0 top-0 mx-auto flex max-w-md items-center justify-between px-4 pt-6">
         <Link href="/inicio" aria-label="Cerrar" className="grid h-11 w-11 place-items-center rounded-full border border-white/30 bg-white/15 backdrop-blur-xl"><Icon name="x" size={20} /></Link>
         <h1 className="text-lg font-extrabold">Escanear</h1>

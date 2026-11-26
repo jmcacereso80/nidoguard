@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useAuth, UserButton } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { Shell } from "@/components/Shell";
+import { AppVersion } from "@/components/AppVersion";
 import { CreateHome } from "@/components/CreateHome";
 import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/Logo";
@@ -72,6 +73,7 @@ export default function Inicio() {
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-32 pt-6">
       {top}{pill}
+      <AppVersion className="-mt-3 mb-3 text-muted/80" />
       <div className="mt-5">
         <h2 className="text-[32px] font-extrabold leading-[1.1] tracking-[-0.8px]">Cuida lo tuyo.</h2>
         <p className="mt-1.5 text-sm text-muted">Tus equipos, tu inversión, tu tranquilidad.</p>
