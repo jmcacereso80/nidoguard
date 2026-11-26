@@ -35,8 +35,8 @@ export default function ClaimKit({ params }: { params: Promise<{ code: string }>
   if (kit) return (
     <Shell title="¡Kit activado!">
       <Card>
-        <p className="text-lg font-bold text-navy">Tienes {kit.tags_total} etiquetas listas.</p>
-        <p className="mt-1 text-ink/70">Escanea una, toma la foto de la placa del equipo y listo.</p>
+        <p className="text-lg font-extrabold text-ink">Tienes {kit.tags_total} etiquetas listas.</p>
+        <p className="mt-1 text-muted">Escanea una, toma la foto de la placa del equipo y listo.</p>
         <button className="btn btn-copper mt-4 w-full" onClick={() => router.push("/escanear")}>Empezar a registrar</button>
       </Card>
     </Shell>
@@ -46,7 +46,7 @@ export default function ClaimKit({ params }: { params: Promise<{ code: string }>
       <Card>
         {manual ? (
           <form onSubmit={(e) => { e.preventDefault(); claim(typed); }} className="flex flex-col gap-3">
-            <label htmlFor="c" className="font-bold text-navy">Escribe el código de tu hoja</label>
+            <label htmlFor="c" className="font-extrabold text-ink">Escribe el código de tu hoja</label>
             <input id="c" className="field text-center text-xl tracking-widest" value={typed} autoCapitalize="characters"
                    onChange={(e) => setTyped(e.target.value)} placeholder="XXXXX-XXXXX" />
             <button className="btn" disabled={busy || typed.length < 6}>{busy ? "Activando…" : "Activar kit"}</button>

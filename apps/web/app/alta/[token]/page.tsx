@@ -56,8 +56,8 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
     <Shell title="Nuevo equipo" back="/inicio">
       <form onSubmit={save} className="flex flex-col gap-4">
         <Card>
-          <p className="font-bold text-navy">1. Foto de la placa</p>
-          <p className="text-sm text-ink/70">Es la etiqueta con marca, modelo y serie, casi siempre en la parte de atrás o dentro de la puerta.</p>
+          <p className="font-extrabold text-ink">1. Foto de la placa</p>
+          <p className="text-sm text-muted">Es la etiqueta con marca, modelo y serie, casi siempre en la parte de atrás o dentro de la puerta.</p>
           <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           <button type="button" className="btn btn-copper mt-3 w-full" onClick={() => fileRef.current?.click()}>
             {file ? "Cambiar foto" : "Tomar foto"}
@@ -65,9 +65,9 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
           {file && <p className="mt-2 text-sm font-semibold text-[var(--ng-ok)]">Foto lista</p>}
         </Card>
         <Card className="flex flex-col gap-3">
-          <label htmlFor="n" className="font-bold text-navy">2. ¿Qué equipo es?</label>
+          <label htmlFor="n" className="font-extrabold text-ink">2. ¿Qué equipo es?</label>
           <input id="n" className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Lavadora" maxLength={200} required />
-          <label htmlFor="s" className="font-bold text-navy">3. ¿Dónde está?</label>
+          <label htmlFor="s" className="font-extrabold text-ink">3. ¿Dónde está?</label>
           <select id="s" className="field" value={spaceId} onChange={(e) => setSpaceId(e.target.value)} required>
             <option value="" disabled>Elige un lugar</option>
             {spaces.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}

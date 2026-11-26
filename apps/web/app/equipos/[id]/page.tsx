@@ -32,7 +32,7 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
         <Card>
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
             {([["Marca", a.brand], ["Modelo", a.model], ["Serie", a.serial], ["Tipo", a.category]] as const).map(([k, v]) => (
-              <div key={k} className="contents"><dt className="text-ink/60">{k}</dt><dd className="font-semibold">{v ?? "—"}</dd></div>
+              <div key={k} className="contents"><dt className="text-muted">{k}</dt><dd className="font-semibold">{v ?? "—"}</dd></div>
             ))}
           </dl>
           {a.status === "por_confirmar" && <button className="btn mt-4 w-full" onClick={() => save("confirm", {})}>Confirmar datos</button>}
@@ -40,7 +40,7 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
         </Card>
         {needs && (
           <Card className="flex flex-col gap-3">
-            <p className="font-bold text-navy">Escribir los datos a mano</p>
+            <p className="font-extrabold text-ink">Escribir los datos a mano</p>
             {(["brand", "model", "serial"] as const).map((k) => (
               <input key={k} className="field" placeholder={{ brand: "Marca", model: "Modelo", serial: "Número de serie" }[k]}
                      value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
@@ -49,7 +49,7 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
           </Card>
         )}
         <Card>
-          <p className="mb-2 font-bold text-navy">Historial</p>
+          <p className="mb-2 font-extrabold text-ink">Historial</p>
           <ol className="flex flex-col gap-2 text-sm">
             {a.events.map((e, i) => <li key={i}><span className="font-semibold">{EVENT[e.type] ?? e.type}</span> · {new Date(e.at).toLocaleDateString("es-MX")}</li>)}
           </ol>

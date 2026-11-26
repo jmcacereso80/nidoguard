@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import jsQR from "jsqr";
 import { parseNidoUrl } from "@/lib/nidoUrl";
-import { Shell, Card, ErrorNote } from "@/components/Shell";
+import { Shell, ErrorNote } from "@/components/Shell";
 
 export default function Escanear() {
   const video = useRef<HTMLVideoElement>(null);
@@ -43,10 +43,10 @@ export default function Escanear() {
 
   return (
     <Shell title="Escanear etiqueta" back="/inicio">
-      <Card className="overflow-hidden !p-0">
+      <div className="gs overflow-hidden rounded-[30px] p-1.5"><div className="overflow-hidden rounded-[24px]">
         <video ref={video} playsInline muted className="aspect-square w-full object-cover" />
-      </Card>
-      <p className="mt-3 text-center text-sm text-ink/70">Apunta al código QR de la etiqueta.</p>
+      </div></div>
+      <p className="mt-3 text-center text-sm text-muted">Apunta al código QR de la etiqueta.</p>
       <ErrorNote text={err} />
     </Shell>
   );

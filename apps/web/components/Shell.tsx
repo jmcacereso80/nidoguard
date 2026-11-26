@@ -1,22 +1,27 @@
 import Link from "next/link";
+import { Logo } from "./Logo";
+import { BottomNav } from "./BottomNav";
 
-export function Shell({ title, back, children }: { title?: string; back?: string; children: React.ReactNode }) {
+export function Shell({ title, back, nav, children }: { title?: string; back?: string; nav?: "inicio" | "por-confirmar"; children: React.ReactNode }) {
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-24 pt-6">
-      <header className="mb-5 flex items-center gap-3">
-        {back && <Link href={back} aria-label="Volver" className="grid h-10 w-10 place-items-center rounded-full glass">‹</Link>}
-        <h1 className="text-2xl font-extrabold text-navy">{title ?? "NidoGuard"}</h1>
+    <main className={`mx-auto w-full max-w-md px-4 pt-6 ${nav ? "pb-32" : "pb-10"}`}>
+      <header className="mb-5 flex min-h-11 items-center gap-3">
+        {back ? (
+          <Link href={back} aria-label="Volver" className="g grid h-11 w-11 flex-none place-items-center rounded-full text-xl font-bold text-navy">‹</Link>
+        ) : <Logo />}
+        <h1 className="text-[28px] font-extrabold leading-tight tracking-tight text-ink">{title ?? "NidoGuard"}</h1>
       </header>
       {children}
+      {nav && <BottomNav active={nav} />}
     </main>
   );
 }
 
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`glass p-5 ${className}`}>{children}</section>;
+  return <section className={`g p-5 ${className}`}>{children}</section>;
 }
 
 export function ErrorNote({ text }: { text: string | null }) {
   if (!text) return null;
-  return <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm font-semibold text-[var(--ng-danger)]">{text}</p>;
+  return <p role="alert" className="mt-3 rounded-2xl bg-white/80 px-4 py-3 text-sm font-bold text-[var(--ng-danger)]">{text}</p>;
 }

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Escanear</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+.g{background:rgba(255,255,255,.58);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border:1px solid rgba(255,255,255,.8);box-shadow:0 10px 30px rgba(24,59,86,.10),inset 0 1px 0 rgba(255,255,255,.9)}
+.gs{background:rgba(255,255,255,.66);backdrop-filter:blur(28px) saturate(1.5);-webkit-backdrop-filter:blur(28px) saturate(1.5);border:1px solid rgba(255,255,255,.85);box-shadow:0 14px 36px rgba(24,59,86,.18),inset 0 1px 0 rgba(255,255,255,.95)}
+.gd{background:linear-gradient(150deg,rgba(115,153,181,.92),rgba(24,59,86,.97));border:1px solid rgba(255,255,255,.35);box-shadow:0 16px 36px rgba(24,59,86,.28),inset 0 1px 0 rgba(255,255,255,.4);color:#fff}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #183B56;outline-offset:2px}
+@supports not (backdrop-filter:blur(1px)){.g,.gs{background:rgba(255,255,255,.92)}}
+@media (prefers-contrast:more){.g,.gs{background:#fff}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:844px;overflow:hidden;font-family:'Manrope',system-ui,sans-serif;color:#102B40;background:#0F2638">
+<div aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(120% 55% at 15% 18%,#4A7392 0%,rgba(74,115,146,0) 62%),radial-gradient(90% 45% at 95% 78%,rgba(193,139,88,.55),rgba(193,139,88,0) 62%),linear-gradient(180deg,#0F2638,#183B56 55%,#0B1D2B)"></div>
+<div style="position:absolute;inset:0;color:#fff">
+<div style="position:absolute;top:58px;left:16px;right:16px;display:flex;align-items:center;justify-content:space-between"><button aria-label="Cerrar" style="width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,.16);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.35);color:#fff;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M6 6l12 12M18 6 6 18"/></svg></button><span style="font-size:17px;font-weight:800">Escanear</span><button aria-label="Linterna" style="width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,.16);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.35);color:#fff;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></button></div>
+<div style="position:absolute;top:114px;left:0;right:0;display:flex;justify-content:center"><button style="height:38px;padding:0 14px;border-radius:19px;background:rgba(255,255,255,.16);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;cursor:pointer;font-family:inherit"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>Registrando en Cocina<span style="opacity:.85;font-weight:600">7 de 20</span><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="m6 9 6 6 6-6"/></svg></button></div>
+<div style="position:absolute;top:190px;left:70px;width:250px;height:250px;border-radius:30px;background:rgba(255,255,255,.07)">
+<span aria-hidden="true" style="position:absolute;width:54px;height:54px;border-top:4px solid #F6F2EC;border-left:4px solid #F6F2EC;border-top-left-radius:26px;top:0;left:0"></span><span aria-hidden="true" style="position:absolute;width:54px;height:54px;border-top:4px solid #F6F2EC;border-right:4px solid #F6F2EC;border-top-right-radius:26px;top:0;right:0"></span><span aria-hidden="true" style="position:absolute;width:54px;height:54px;border-bottom:4px solid #F6F2EC;border-left:4px solid #F6F2EC;border-bottom-left-radius:26px;bottom:0;left:0"></span><span aria-hidden="true" style="position:absolute;width:54px;height:54px;border-bottom:4px solid #F6F2EC;border-right:4px solid #F6F2EC;border-bottom-right-radius:26px;bottom:0;right:0"></span>
+<span aria-hidden="true" style="position:absolute;left:22px;right:22px;top:124px;height:3px;border-radius:2px;background:#C18B58;box-shadow:0 0 18px 2px rgba(193,139,88,.8)"></span></div>
+<div style="position:absolute;top:470px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 32px;text-align:center">
+<span style="height:42px;padding:0 20px;display:flex;align-items:center;border-radius:21px;background:rgba(255,255,255,.16);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.35);font-size:15px;font-weight:700">Apunta al QR de la etiqueta</span>
+<span style="font-size:13px;line-height:1.45;color:rgba(255,255,255,.88)">Si tu teléfono lo permite, también puedes acercarlo a la etiqueta NFC.</span>
+<a href="AltaManual.dc.html" style="margin-top:8px;color:#fff;font-size:14px;font-weight:700;text-decoration:underline;text-underline-offset:4px;min-height:44px;display:flex;align-items:center">Escribir los datos a mano</a></div>
+<div style="position:absolute;left:16px;right:16px;top:628px;height:48px;border-radius:24px;padding:4px;display:flex;background:rgba(255,255,255,.14);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.3)"><button style="flex:1;height:40px;border-radius:20px;border:0;background:rgba(255,255,255,.92);color:#183B56;background-clip:padding-box;font-size:13.5px;font-weight:700;cursor:pointer;">Etiqueta QR</button><button style="flex:1;height:40px;border-radius:20px;border:0;color:#fff;background-clip:padding-box;font-size:13.5px;font-weight:700;cursor:pointer;background:transparent;">Placa del equipo</button><button style="flex:1;height:40px;border-radius:20px;border:0;color:#fff;background-clip:padding-box;font-size:13.5px;font-weight:700;cursor:pointer;background:transparent;">Manual</button></div>
+<a href="Confirmar.dc.html" aria-label="Tomar foto" style="position:absolute;left:157px;top:702px;width:76px;height:76px;border-radius:50%;background:transparent;border:4px solid #fff;padding:0;display:flex;align-items:center;justify-content:center"><span style="width:56px;height:56px;border-radius:50%;background:#F6F2EC;display:block"></span></a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

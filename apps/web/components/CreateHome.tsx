@@ -21,7 +21,7 @@ export function CreateHome({ onDone }: { onDone?: () => void }) {
   return (
     <Card>
       <form onSubmit={submit} className="flex flex-col gap-3">
-        <label htmlFor="home" className="font-bold text-navy">¿Cómo se llama tu hogar?</label>
+        <label htmlFor="home" className="font-extrabold text-ink">¿Cómo se llama tu hogar?</label>
         <input id="home" className="field" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required />
         <button className="btn" disabled={busy || !name.trim()}>{busy ? "Creando…" : "Crear mi hogar"}</button>
         <ErrorNote text={err} />

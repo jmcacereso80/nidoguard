@@ -33,14 +33,14 @@ export default function Tag({ params }: { params: Promise<{ token: string }> }) 
   if (r.state === "necesita_sesion") return (
     <Shell title="Etiqueta NidoGuard">
       <Card>
-        <p className="font-bold text-navy">Inicia sesión para ver este equipo.</p>
+        <p className="font-extrabold text-ink">Inicia sesión para ver este equipo.</p>
         <Link className="btn mt-4 w-full" href={`/sign-in?redirect_url=${encodeURIComponent(`/t/${token}`)}`}>Iniciar sesión</Link>
       </Card>
     </Shell>
   );
   if (r.state === "ajena") return (
     <Shell title="Etiqueta NidoGuard">
-      <Card><p className="text-ink/80">Esta etiqueta no está registrada en tu hogar. Si encontraste este equipo, contacta a su dueño.</p></Card>
+      <Card><p className="text-muted">Esta etiqueta no está registrada en tu hogar. Si encontraste este equipo, contacta a su dueño.</p></Card>
     </Shell>
   );
   return <Shell title="Etiqueta"><p>Abriendo…</p></Shell>;

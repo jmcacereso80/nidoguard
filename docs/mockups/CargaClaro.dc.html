@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pantalla de carga, claro</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+*{box-sizing:border-box}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit}
+.g{background:rgba(255,255,255,.58);backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border:1px solid rgba(255,255,255,.8);box-shadow:0 10px 30px rgba(24,59,86,.10),inset 0 1px 0 rgba(255,255,255,.9)}
+.gs{background:rgba(255,255,255,.66);backdrop-filter:blur(28px) saturate(1.5);-webkit-backdrop-filter:blur(28px) saturate(1.5);border:1px solid rgba(255,255,255,.85);box-shadow:0 14px 36px rgba(24,59,86,.18),inset 0 1px 0 rgba(255,255,255,.95)}
+.gd{background:linear-gradient(150deg,rgba(115,153,181,.92),rgba(24,59,86,.97));border:1px solid rgba(255,255,255,.35);box-shadow:0 16px 36px rgba(24,59,86,.28),inset 0 1px 0 rgba(255,255,255,.4);color:#fff}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #183B56;outline-offset:2px}
+@supports not (backdrop-filter:blur(1px)){.g,.gs{background:rgba(255,255,255,.92)}}
+@media (prefers-contrast:more){.g,.gs{background:#fff}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;height:844px;overflow:hidden;font-family:'Manrope',system-ui,sans-serif;color:#102B40;background:#F6F2EC">
+<div aria-hidden="true" style="position:absolute;top:-130px;left:-110px;width:440px;height:440px;border-radius:50%;background:radial-gradient(circle,rgba(115,153,181,.8),rgba(115,153,181,0) 68%)"></div><div aria-hidden="true" style="position:absolute;top:260px;right:-120px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(115,153,181,.35),rgba(115,153,181,0) 70%)"></div><div aria-hidden="true" style="position:absolute;bottom:-70px;right:-150px;width:480px;height:480px;border-radius:50%;background:radial-gradient(circle,rgba(193,139,88,.6),rgba(193,139,88,0) 68%)"></div><div aria-hidden="true" style="position:absolute;bottom:40px;left:-120px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(193,139,88,.25),rgba(193,139,88,0) 70%)"></div>
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+<div style="margin-top:-40px"><img src="/_blob/64f268b91a04a9a82ead143b0cd7a9c9" alt="NidoGuard" width="135" height="150" style="flex:none;display:block"></div>
+<div style="margin-top:22px;font-size:32px;font-weight:800;letter-spacing:-.8px;color:#183B56">NidoGuard</div>
+<div style="margin-top:6px;font-size:15px;font-weight:600;color:#526574">Mejor vida. Más valor.</div>
+<div role="progressbar" aria-label="Cargando" style="position:absolute;bottom:84px;width:140px;height:6px;border-radius:3px;background:rgba(24,59,86,.14);overflow:hidden"><div style="width:45%;height:100%;border-radius:3px;background:linear-gradient(90deg,#7399B5,#183B56)"></div></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
