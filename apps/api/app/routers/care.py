@@ -31,6 +31,7 @@ def _task_out(t: CareTask) -> dict:
     return {
         "id": str(t.id), "title": t.title, "detail": t.detail, "instructions": t.instructions,
         "every": {"n": t.every_n, "unit": t.every_unit}, "priority": t.priority,
+        "needs_technician": t.needs_technician,
         "source": t.source, "confirmed": t.status == "confirmada",
         "next_due": t.next_due.isoformat(),
         "done_at": t.last_done_at.date().isoformat() if t.last_done_at else None,

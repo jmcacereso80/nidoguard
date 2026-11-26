@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
 from ..models import AssetEvent, AssetStatus, CareTask, CareTemplate, EquipmentAsset
-from .care_planner import MAX_TASKS, CareItem, CarePlan, CarePlanner, first_due, get_planner
+from .care_planner import MAX_TASKS, MAX_TECH_TASKS, PLAN_VERSION, CareItem, CarePlan, CarePlanner, first_due, get_planner
 from .manuales import norm
 
 log = logging.getLogger("nidoguard.cuidados")
@@ -36,11 +36,15 @@ def template_key(a: EquipmentAsset) -> tuple[str, str] | None:
 
 def _items(plan: CarePlan) -> list[dict]:
     """Hasta MAX_TASKS cuidados, sin titulos repetidos."""
-    vistos, out = set(), []
+    vistos, out, tecnicos = set(), [], 0
     for it in plan.tasks:
         clave = it.title.lower()
         if clave in vistos or len(out) >= MAX_TASKS:
             continue
+        if it.needs_technician:
+            if tecnicos >= MAX_TECH_TASKS:
+                continue
+            tecnicos += 1
         vistos.add(clave)
         out.append(it.model_dump())
     return out
@@ -55,9 +59,13 @@ def _template_for(db: Session, a: EquipmentAsset, planner: CarePlanner) -> tuple
     # Un candado por clave: si dos equipos del mismo modelo se confirman a la vez, la IA se llama una sola vez.
     db.execute(text("select pg_advisory_xact_lock(hashtext(:k))"), {"k": key})
     t = db.scalar(select(CareTemplate).where(CareTemplate.key == key))
+    etiqueta = f"{getattr(planner, 'name', None)}|v{PLAN_VERSION}"
+    if t is not None and t.source == "sugerencia" and not t.verified and not (t.planner or "").endswith(f"|v{PLAN_VERSION}"):
+        # Plan de una version anterior del prompt: se regenera una sola vez (los equipos que ya tienen cuidados no cambian).
+        t.items, t.planner = _items(_plan(planner, a, compartido=True)), etiqueta
     if t is None:
         items = _items(_plan(planner, a, compartido=True))
-        t = CareTemplate(key=key, kind=kind, category=a.category, items=items, planner=getattr(planner, "name", None), uses=0)
+        t = CareTemplate(key=key, kind=kind, category=a.category, items=items, planner=etiqueta, uses=0)
         if kind == "modelo":
             t.brand, t.model = a.brand.strip(), a.model.strip()
         db.add(t)
@@ -94,7 +102,7 @@ def generate_for_asset(db: Session, asset_id: uuid.UUID, planner: CarePlanner, h
         it = CareItem.model_validate(it)
         db.add(CareTask(asset_id=a.id, organization_id=a.organization_id, title=it.title[:200], detail=it.detail[:300] or None,
                         instructions=it.instructions or None, every_n=it.every_n, every_unit=it.every_unit,
-                        priority=it.priority, source=source, status="sugerida",
+                        priority=it.priority, needs_technician=it.needs_technician, source=source, status="sugerida",
                         next_due=first_due(hoy, it.every_n, it.every_unit)))
     db.add(AssetEvent(asset_id=a.id, organization_id=a.organization_id, type="cuidados_sugeridos", actor_id=actor_id,
                       payload={"cantidad": len(items), "origen": source, "plan_compartido": template_key(a) is not None}))

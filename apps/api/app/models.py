@@ -274,6 +274,7 @@ class CareTask(Base):
     every_n: Mapped[int] = mapped_column(Integer)
     every_unit: Mapped[str] = mapped_column(String(10))  # dia | semana | mes | anio
     priority: Mapped[str] = mapped_column(String(10), default="media")  # alta | media | baja
+    needs_technician: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     source: Mapped[str] = mapped_column(String(12), default="sugerencia")
     status: Mapped[str] = mapped_column(String(12), default="sugerida")
     next_due: Mapped[date] = mapped_column(Date, index=True)

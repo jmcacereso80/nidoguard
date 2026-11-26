@@ -305,3 +305,48 @@ def test_si_la_ia_falla_no_queda_plantilla(caso, db):
     assert db.scalars(select(CareTemplate)).all() == []
     app.dependency_overrides[get_planner] = lambda: FakePlanner()
     assert c.post(f"/assets/{x['id']}/care/generate").status_code == 200
+
+
+def test_service_mode_by_category():
+    from app.services.service_mode import service_mode
+    assert service_mode("Licuadora") == "llevar" and service_mode("Cafetera") == "llevar"
+    assert service_mode("Aire acondicionado") == "domicilio" and service_mode(None) == "domicilio"
+
+
+def test_cuidados_con_tecnico_se_marcan_y_se_limitan(caso, db):
+    c, a, _, tokens = caso
+
+    class ConTecnico(FakePlanner):
+        def plan(self, category, name, brand, model):
+            base = super().plan(category, name, brand, model).tasks
+            tec = [CareItem(title=f"Servicio profesional {i}", detail="Lo hace un técnico", instructions="1. Llama a un técnico",
+                            every_n=1, every_unit="anio", priority="alta", needs_technician=True) for i in range(5)]
+            return CarePlan(tasks=base[:3] + tec)
+
+    app.dependency_overrides[get_planner] = lambda: ConTecnico()
+    tareas = c.post(f"/assets/{a['id']}/care/generate").json()["tasks"]
+    tec = [t for t in tareas if t["needs_technician"]]
+    assert len(tec) == 3  # nunca mas de 3 servicios con tecnico por equipo
+    assert all(not t["needs_technician"] for t in tareas if t not in tec)
+    hogar = c.get("/care").json()["tasks"]
+    assert sum(1 for t in hogar if t["needs_technician"]) == 3
+
+
+def test_plan_compartido_de_version_anterior_se_regenera_una_vez(caso, db):
+    c, a, planner, tokens = caso
+    from app.models import CareTemplate
+    from app.services.care_planner import PLAN_VERSION
+    from sqlalchemy import select
+    x = _equipo(c, db, tokens[1], "Lavadora vieja", "LG", "WA17", "lavadora")
+    db.add(CareTemplate(key="modelo|lg|wa17", kind="modelo", brand="LG", model="WA17", category="lavadora",
+                        items=[{"title": "Viejo", "detail": "x", "instructions": "x", "every_n": 1, "every_unit": "mes", "priority": "baja"}],
+                        planner="falso", uses=3))
+    db.commit()
+    c.post(f"/assets/{x['id']}/care/generate")
+    assert planner.calls == 1
+    t = db.scalar(select(CareTemplate).where(CareTemplate.key == "modelo|lg|wa17"))
+    db.refresh(t)
+    assert t.planner == f"falso|v{PLAN_VERSION}" and t.items[0]["title"] != "Viejo"
+    y = _equipo(c, db, tokens[2], "Otra lavadora", "LG", "WA17", "lavadora")
+    c.post(f"/assets/{y['id']}/care/generate")
+    assert planner.calls == 1  # ya esta en la version vigente: no vuelve a llamar a la IA

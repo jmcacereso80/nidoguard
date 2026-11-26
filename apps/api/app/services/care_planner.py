@@ -11,6 +11,8 @@ Unit = Literal["dia", "semana", "mes", "anio"]
 Priority = Literal["alta", "media", "baja"]
 MAX_TASKS = 8
 MIN_TASKS = 3
+MAX_TECH_TASKS = 3
+PLAN_VERSION = 2  # sube cuando cambia el prompt: los planes compartidos sin verificar se regeneran una vez
 
 
 def add_every(d: date, n: int, unit: str) -> date:
@@ -41,6 +43,7 @@ class CareItem(BaseModel):
     every_n: int = Field(ge=1, le=60, description="Cada cuantas unidades")
     every_unit: Unit = Field(description="dia, semana, mes o anio")
     priority: Priority = Field(description="alta si afecta seguridad o evita danos; media; baja si es comodidad")
+    needs_technician: bool = Field(default=False, description="true solo si lo debe hacer un tecnico profesional (abrir el equipo, gas, refrigerante, electricidad por dentro)")
 
     @field_validator("title", "detail", "instructions", mode="before")
     @classmethod
@@ -59,7 +62,10 @@ PROMPT = (
     "segun lo que corresponda; no fuerces una frecuencia si no hace falta). "
     "Reglas: lenguaje simple, sin jerga tecnica, en espanol de Mexico. Son recomendaciones GENERALES por tipo de equipo: "
     "NO inventes cifras, codigos, piezas ni pasos propios del modelo; si algo depende del modelo, dilo asi: 'revisa tu manual'. "
-    "Nada que requiera abrir el equipo ni tocar la electricidad por dentro: eso lo hace un tecnico. "
+    "Los cuidados que hace la persona NO requieren abrir el equipo ni tocar la electricidad por dentro. "
+    f"Si el tipo de equipo de verdad necesita un servicio profesional (por ejemplo, mantenimiento preventivo anual), agrega de 1 a {MAX_TECH_TASKS} "
+    "con needs_technician=true, con frecuencia realista y titulo como 'Mantenimiento preventivo con un tecnico'; sus instrucciones dicen que revise un tecnico y que pasos NO debe intentar la persona. "
+    "Si no hace falta ninguno, no inventes uno. "
     "Cada cuidado lleva titulo, para que sirve, instrucciones paso a paso, frecuencia y prioridad."
 )
 
