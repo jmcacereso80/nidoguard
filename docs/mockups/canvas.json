@@ -163,6 +163,15 @@
    "is_interactive": true,
    "expand": "fill",
    "radius": 44
+  },
+  "EquipoDocsVacio.dc.html": {
+   "x": 1410,
+   "y": 3672,
+   "w": 390,
+   "h": 844,
+   "title": "Expediente: Documentos, sin subir",
+   "is_interactive": true,
+   "radius": 44
   }
  },
  "order": [
@@ -177,6 +186,7 @@
   "CargaClaro.dc.html",
   "CargaOscuro.dc.html",
   "EquipoDocs.dc.html",
+  "EquipoDocsVacio.dc.html",
   "EquipoCuidado.dc.html",
   "EquipoHistorial.dc.html",
   "AltaUbicacion.dc.html",
@@ -211,7 +221,7 @@
    "y": 3412,
    "text": "Pestañas del expediente",
    "kind": "title1",
-   "maxW": 1330
+   "maxW": 1800
   },
   "t3": {
    "x": 0,
