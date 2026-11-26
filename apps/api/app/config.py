@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     plate_fallback_model: str = "claude-sonnet-5-5"
     plate_min_confidence: float = 0.7
 
+    geocoder: str = "nominatim"  # nominatim | fake
+    geocoder_user_agent: str = "NidoGuard/1.0 (contacto@nidoguard.com)"
+
     claim_max_failures_per_hour: int = 10
 
     @property

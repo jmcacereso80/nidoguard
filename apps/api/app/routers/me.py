@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..models import Membership, Organization, Property, Space, User
 from ..security import current_org, current_user
+from ..services.geocoder import Geocoder, get_geocoder
 
 router = APIRouter(tags=["cuenta"])
 
@@ -15,16 +17,31 @@ class HomeIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
 
 
+class AddressIn(BaseModel):
+    street: str = Field(min_length=3, max_length=200)
+    colony: str | None = Field(default=None, max_length=120)
+    postal_code: str | None = Field(default=None, pattern=r"^\d{5}$")
+    city: str = Field(min_length=2, max_length=120)
+    state: str | None = Field(default=None, max_length=120)
+
+
 class SpaceIn(BaseModel):
     property_id: str | None = None
     name: str = Field(min_length=1, max_length=120)
     icon: str | None = Field(default=None, max_length=40)
 
 
+def _address_out(p: Property):
+    """La direccion es completa solo si ya tiene coordenadas: sin ellas no se puede buscar tecnicos cerca."""
+    return {"street": p.street, "colony": p.colony, "postal_code": p.postal_code, "city": p.city,
+            "state": p.state, "search_radius_km": p.search_radius_km,
+            "complete": p.lat is not None and p.lng is not None}
+
+
 def _org_out(db: Session, org: Organization):
     props = db.scalars(select(Property).where(Property.organization_id == org.id)).all()
     return {"id": str(org.id), "name": org.name,
-            "properties": [{"id": str(p.id), "name": p.name} for p in props]}
+            "properties": [{"id": str(p.id), "name": p.name, "address": _address_out(p)} for p in props]}
 
 
 @router.get("/me")
@@ -73,3 +90,20 @@ def create_space(body: SpaceIn, org: Organization = Depends(current_org), db: Se
     db.add(s)
     db.commit()
     return {"id": str(s.id), "name": s.name, "icon": s.icon, "property_id": str(prop.id)}
+
+
+@router.put("/properties/{property_id}/address")
+def set_address(property_id: str, body: AddressIn, org: Organization = Depends(current_org),
+                db: Session = Depends(get_db), geo: Geocoder = Depends(get_geocoder)):
+    prop = db.scalar(select(Property).where(Property.id == property_id, Property.organization_id == org.id))
+    if not prop:
+        raise HTTPException(404, "No encontramos esa propiedad")
+    point = geo.geocode(body.street.strip(), body.colony, body.postal_code, body.city.strip(), body.state)
+    if point is None:
+        raise HTTPException(422, "No pudimos ubicar esa dirección en el mapa. Revisa la calle, el número y el código postal.")
+    prop.street, prop.colony, prop.postal_code = body.street.strip(), body.colony, body.postal_code
+    prop.city, prop.state = body.city.strip(), body.state
+    prop.address = ", ".join(x for x in [prop.street, prop.colony, prop.city, prop.state] if x)
+    prop.lat, prop.lng, prop.geocoded_at = point.lat, point.lng, datetime.now(timezone.utc)
+    db.commit()
+    return _address_out(prop)

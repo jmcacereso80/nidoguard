@@ -81,6 +81,15 @@ class Property(Base):
     organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(200))
     address: Mapped[str | None] = mapped_column(String(500))
+    street: Mapped[str | None] = mapped_column(String(200))  # calle y numero
+    colony: Mapped[str | None] = mapped_column(String(120))
+    postal_code: Mapped[str | None] = mapped_column(String(10))
+    city: Mapped[str | None] = mapped_column(String(120))
+    state: Mapped[str | None] = mapped_column(String(120))
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+    search_radius_km: Mapped[int] = mapped_column(Integer, default=15, server_default=text("15"))
+    geocoded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = now()
 
 
