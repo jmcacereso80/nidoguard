@@ -64,6 +64,7 @@ export default function Inicio() {
         )}
         {total > 0 && <p className="text-center text-xs text-muted">Escanea la etiqueta que va pegada al equipo, no la hoja del kit.</p>}
         {total > 0 && <Link href="/k/activar" className="btn btn-ghost w-full">Activar otro kit</Link>}
+        <Link href="/equipos" className="btn btn-ghost w-full">Ver mis equipos</Link>
       </div>
       {attention > 0 && (
         <>

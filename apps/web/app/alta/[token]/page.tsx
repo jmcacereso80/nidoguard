@@ -91,7 +91,7 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
       await qc.invalidateQueries({ queryKey: ["spaces"] });
       const sid = adding ? (await api<Space[]>("/spaces")).find((s) => s.name === newSpace.trim())?.id : spaceId;
       if (sid) sessionStorage.setItem(LAST_SPACE, sid);       // modo rafaga: se conserva la ubicacion
-      qc.invalidateQueries({ queryKey: ["kits"] });
+      qc.invalidateQueries({ queryKey: ["kits"] }); qc.invalidateQueries({ queryKey: ["assets"] });
       setAssetId(a.id);
       if (a.upload && file) {
         setUpload(a.upload);

@@ -52,7 +52,7 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
 
   async function refresh() {
     qc.invalidateQueries({ queryKey: ["asset", id] }); qc.invalidateQueries({ queryKey: ["pending"] });
-    qc.invalidateQueries({ queryKey: ["kits"] });
+    qc.invalidateQueries({ queryKey: ["kits"] }); qc.invalidateQueries({ queryKey: ["assets"] });
   }
 
   async function saveManual() {
