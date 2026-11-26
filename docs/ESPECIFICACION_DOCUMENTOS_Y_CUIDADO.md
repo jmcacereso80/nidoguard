@@ -7,21 +7,23 @@ Resume lo ya decidido en el Project NIDOGUARD (D-013, D-014, D-007, D-009; model
 - La lectura de placa extrae solo marca, modelo y número de serie (más el tipo para nombrar el equipo). El resto del texto de la placa queda en `AssetReading.transcript`.
 - Diseño: `docs/DISENO_LIQUID_GLASS.md` y `docs/mockups/` (`EquipoDocs`, `EquipoCuidado`, `EquipoHistorial`). El mockup manda.
 
-## Pestaña Documentos (D-013)
-- Tres bloques: **Manuales**, **Garantía** y **Factura**. Garantía y factura son opcionales ("si la tiene").
-- Garantía y factura: la persona sube una foto o un PDF escaneado, al comprar el equipo o después. Subida directa a R2 privado con URL firmada y validación del tipo real del archivo.
-- Claude extrae: fecha de inicio, duración, cobertura, proveedor y folio, con confianza por campo. La persona revisa y confirma; lo que no se lee queda vacío.
-- Al confirmar se crea o actualiza `Warranty` (inicio, duración, vencimiento, proveedor, cobertura, folio, vínculo al documento).
-- `AssetDocument` guarda el hash del archivo para no procesarlo dos veces. Los documentos privados **nunca** entran a la base compartida de conocimiento.
-- Manuales: vienen de la base de conocimiento por modelo (ver abajo). Mostrar enlace y fuente originales.
+## Pestaña Documentos (D-013, ajustada por Juan)
+- **Manual de uso: lo busca la IA, la persona no lo sube.** Cuando marca y modelo están confirmados, un flujo de Prefect busca el manual oficial del modelo (o lo toma de la base de conocimiento si ya existe) y lo deja en esta pestaña con enlace a la fuente. Estados: `buscando`, `listo`, `no_encontrado` (se reintenta después). Sin modelo confirmado no se busca.
+- **Garantía: la persona la sube** con foto o PDF (botones "Tomar foto" y "Subir PDF"). **Factura**: igual, opcional ("si la tiene").
+- Flujo de subida: `POST /assets/{id}/documents/upload-url` (kind, filename, content_type, size) devuelve URL firmada de R2 y `document_id`; el navegador hace PUT del archivo; `POST /assets/{id}/documents/{document_id}/process` lanza la lectura. Validar el tipo real del archivo (imagen o PDF) y un tamaño máximo.
+- Claude extrae fecha de inicio, duración, cobertura, proveedor y folio, con confianza por campo. La persona revisa y confirma; lo que no se lee queda vacío. Al confirmar se crea `Warranty`.
+- `AssetDocument` guarda el hash del archivo para no procesarlo dos veces. Los documentos privados **nunca** entran a la base compartida.
+- `GET /assets/{id}/documents` devuelve `{ manuals[], warranty|null, invoice|null }` (formato en `apps/web/lib/care.ts`).
 
-## Pestaña Cuidado (D-013)
-- Recomendaciones generadas con Claude, **siempre etiquetadas**: "Fuente: manual del fabricante" frente a "Sugerencia de NidoGuard, por confirmar".
-- La garantía por vencer se muestra aquí **solo si está confirmada**.
-- El plan específico del modelo no se muestra hasta confirmar el modelo, o aparece marcado "basado en datos sin confirmar".
-- Modelo: `MaintenancePlan`, `MaintenanceTask`, `MaintenanceRecord`, `Reminder`, `Notification`.
-- Registrar un cuidado hecho (botón "Registrar cuidado") agrega un evento al Historial (`AssetEvent`, solo agregar).
-- Recordatorios agrupados en un resumen semanal (push o WhatsApp) que se puede silenciar. No uno por equipo.
+## Pestaña Cuidado (D-013, ajustada por Juan)
+Son los cuidados del equipo a lo largo del tiempo, **agrupados por frecuencia**: diario, semanal, mensual, bimestral, trimestral, semestral, anual, bianual (cada 2 años) y más largos.
+- Cada tarea: título, frecuencia estructurada `every = {n, unit: dia|semana|mes|anio}`, próxima fecha (`next_due`), detalle, instrucciones paso a paso, y **origen**: "Fuente: manual del fabricante" o "Sugerencia de NidoGuard, por confirmar".
+- Las tareas con origen "manual" salen del manual de la base de conocimiento del modelo (D-014). Mientras no exista, Claude genera tareas generales por tipo de equipo, siempre como sugerencia por confirmar.
+- La garantía por vencer (60 días o menos) se muestra arriba **solo si está confirmada**. Una garantía estimada nunca alerta.
+- Hasta confirmar el modelo, el plan se marca "Basado en datos sin confirmar" (Q-015, ver abajo).
+- "Registrar cuidado" marca la tarea como hecha, calcula el siguiente `next_due` según `every` y agrega un evento al Historial (`AssetEvent`, solo agregar).
+- Recordatorios agrupados en un resumen semanal (push o WhatsApp) que se puede silenciar; los cuidados diarios no mandan una notificación cada uno.
+- `GET /assets/{id}/care` devuelve `{ model_confirmed, tasks[] }`. Modelo: `MaintenancePlan`, `MaintenanceTask`, `MaintenanceRecord`, `Reminder`, `Notification`.
 
 ## Base de conocimiento por modelo (D-014)
 - Se investiga **una vez por modelo** (clave marca + modelo normalizada) y se reutiliza. Vive en la misma PostgreSQL con `pgvector` y en R2 (`nidoguard-knowledge`).
@@ -37,9 +39,10 @@ Resume lo ya decidido en el Project NIDOGUARD (D-013, D-014, D-007, D-009; model
 - Una rama por tarea, pruebas antes de subir, commits en español. Actualiza `docs/DECISIONES_RESUMEN.md` si algo cambia una decisión.
 
 ## Orden sugerido (cada paso en su rama)
-1. **Garantía y factura** (`fase-documentos-garantia`): subida, lectura con Claude, confirmación, `Warranty`, pestaña Documentos real. Requiere R2 (pedir permiso).
-2. **Cuidado básico** (`fase-cuidado-basico`): tareas generales por tipo de equipo generadas con Claude y etiquetadas "Sugerencia de NidoGuard, por confirmar"; "Registrar cuidado" al Historial; alerta de garantía.
-3. **Base de conocimiento por modelo** (`fase-conocimiento-modelo`): manuales, `pgvector`, investigación única con Prefect; Cuidado pasa a "Fuente: manual del fabricante". Requiere confirmar que el Postgres.app de Juan trae `pgvector`.
+0. **Pantallas** ya hechas en la rama `fase-documentos-cuidado-ui` (Documentos, Cuidado agrupado por frecuencia, subida de garantía/factura). Falta el backend.
+1. **Garantía y factura** (`fase-documentos-garantia`): endpoints de subida y lectura con Claude, confirmación, `Warranty`. Requiere R2 (pedir permiso).
+2. **Cuidado básico** (`fase-cuidado-basico`): tareas por frecuencia generadas con Claude por tipo de equipo, etiquetadas "Sugerencia de NidoGuard, por confirmar"; "Registrar cuidado" al Historial; alerta de garantía.
+3. **Búsqueda de manual y base de conocimiento por modelo** (`fase-conocimiento-modelo`): búsqueda automática del manual, `pgvector`, investigación única con Prefect; Cuidado pasa a "Fuente: manual del fabricante". Requiere confirmar que el Postgres.app de Juan trae `pgvector`.
 
 ## Decisiones abiertas (preguntar a Juan antes del paso que las necesite)
 - Q-014: si solo se conoce la fecha de compra, ¿se muestra una garantía **estimada**, marcada "Estimada, por confirmar"?

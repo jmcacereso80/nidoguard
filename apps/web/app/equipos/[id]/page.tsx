@@ -3,7 +3,9 @@ import Link from "next/link";
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Shell, Card, ErrorNote, Pronto } from "@/components/Shell";
+import { Shell, Card, ErrorNote } from "@/components/Shell";
+import { Documentos } from "@/components/equipo/Documentos";
+import { Cuidado } from "@/components/equipo/Cuidado";
 import { Icon, equipmentIcon } from "@/components/Icon";
 import { Asset, Space, useApi } from "@/lib/api";
 import { STILL_READING, statusInfo } from "@/lib/assetStatus";
@@ -223,8 +225,8 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
           <ErrorNote text={err} />
         </div>
       )}
-      {tab === "Documentos" && <Pronto icon="file" title="Manuales, garantía y factura" text="Aquí guardarás el manual de uso, la garantía y la factura de este equipo." />}
-      {tab === "Cuidado" && <Pronto icon="heart" title="Plan de cuidado" text="Aquí verás qué hacerle a este equipo y cuándo, según su modelo." />}
+      {tab === "Documentos" && <Documentos id={id} />}
+      {tab === "Cuidado" && <Cuidado id={id} />}
       {tab === "Historial" && (
         <ol className="flex flex-col gap-3">
           {a.events.map((e, i) => (
