@@ -50,3 +50,11 @@ Son los cuidados del equipo a lo largo del tiempo, **agrupados por frecuencia**:
 - ¿El precio de compra de la factura se guarda solo o únicamente si la persona lo confirma?
 - ¿Cada cuántos meses se refresca el conocimiento de un modelo y quién lo marca como verificado?
 - Q-011: revisión legal de alojar copias de manuales.
+
+## Estado: cuidados de cada equipo (rama `fase-cuidado-basico`)
+Hecho, con pruebas: tablas `care_tasks` y `care_records` (migración 0005), generador `ClaudeCarePlanner` detrás de la interfaz `CarePlanner` (`apps/api/app/services/care_planner.py`, modelo en `CARE_MODEL`), y estas rutas:
+- `GET /assets/{id}/care` y `POST /assets/{id}/care/generate` (idempotente; si falla la IA responde 503 y no guarda nada).
+- `POST /care/{id}/done` (siguiente fecha = fecha en que se hizo + frecuencia de calendario, nunca en el pasado; también confirma la sugerencia y agrega "cuidado_hecho" al Historial), `/reschedule`, `/confirm` ("Me sirve"), `/dismiss` ("No aplica", no se vuelve a sugerir).
+- `GET /care`: todos los cuidados del hogar con nombre del equipo y ubicación, para la pantalla Cuidado del menú.
+Reglas: todo sale con origen "sugerencia" (el manual solo se enlaza, no se lee; el origen "manual del fabricante" llega con la base de conocimiento). La primera fecha es la frecuencia pero nunca más de 30 días. El día de hoy se cuenta en hora de la Ciudad de México.
+Pendiente: pantalla global `/cuidado` (mockup `Cuidado.dc.html`: Próximas, Vencidas, Garantías, Historial), resumen semanal de recordatorios, y cuidados con origen en el manual del fabricante.

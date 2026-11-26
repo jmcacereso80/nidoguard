@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     app_url: str = "https://app.nidoguard.com"
     cors_origins: str = "http://localhost:3000"
 
+    care_model: str = "claude-haiku-5-5"  # genera los cuidados de cada equipo
     plate_model: str = "claude-haiku-5-5"
     plate_fallback_model: str = "claude-sonnet-5-5"
     plate_min_confidence: float = 0.7

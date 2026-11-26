@@ -15,6 +15,7 @@ Requires-Dist: anthropic
 Requires-Dist: qrcode[pil]
 Requires-Dist: reportlab
 Requires-Dist: pillow
+Requires-Dist: pillow-heif
 Requires-Dist: python-multipart
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"

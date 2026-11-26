@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { daysLeft, warrantyView, showWarrantyAlert, everyLabel, everyShort, groupByFrequency } from "./care.ts";
+import { daysLeft, warrantyView, showWarrantyAlert, everyLabel, everyShort, groupByFrequency, dueLabel } from "./care.ts";
 import type { CareTask, Every } from "./care.ts";
 
 const hoy = new Date(2026, 10, 25);
@@ -40,4 +40,11 @@ test("agrupa de lo más seguido a lo menos seguido", () => {
   const g = groupByFrequency([mk("a", { n: 1, unit: "anio" }), mk("b", { n: 1, unit: "dia" }), mk("c", { n: 3, unit: "mes" }), mk("d", { n: 1, unit: "semana" }), mk("e", { n: 2, unit: "anio" }), mk("f", { n: 1, unit: "mes" }, "2026-12-01"), mk("g", { n: 1, unit: "mes" }, "2026-11-30")]);
   assert.deepEqual(g.map((x) => x.key), ["diario", "semanal", "mensual", "trimestral", "anual", "largo"]);
   assert.deepEqual(g[2].tasks.map((x) => x.id), ["g", "f"]);
+});
+
+test("cuándo toca un cuidado", () => {
+  assert.deepEqual(dueLabel("2026-11-20", hoy), { text: "Venció el 20 nov", tone: "vencido" });
+  assert.deepEqual(dueLabel("2026-11-25", hoy), { text: "Toca hoy", tone: "hoy" });
+  assert.deepEqual(dueLabel("2026-11-26", hoy), { text: "Toca mañana", tone: "normal" });
+  assert.deepEqual(dueLabel("2027-01-15", hoy), { text: "Próximo: 15 ene", tone: "normal" });
 });

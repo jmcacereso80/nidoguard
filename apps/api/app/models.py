@@ -249,3 +249,36 @@ class ModelResearchRun(Base):
     status: Mapped[str] = mapped_column(String(20))  # listo | no_encontrado | error
     detail: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = now()
+
+
+class CareTask(Base):
+    """Cuidado recurrente de un equipo (p. ej. limpiar el filtro cada 3 meses).
+    origen: 'sugerencia' (la propone NidoGuard, por confirmar) o 'manual' (viene del manual del fabricante; fase posterior).
+    estado: 'sugerida' (por confirmar), 'confirmada' (la persona dijo 'Me sirve') o 'descartada' ('No aplica')."""
+    __tablename__ = "care_tasks"
+    id: Mapped[uuid.UUID] = pk()
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("equipment_assets.id", ondelete="CASCADE"), index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    detail: Mapped[str | None] = mapped_column(String(300))
+    instructions: Mapped[str | None] = mapped_column(Text)
+    every_n: Mapped[int] = mapped_column(Integer)
+    every_unit: Mapped[str] = mapped_column(String(10))  # dia | semana | mes | anio
+    priority: Mapped[str] = mapped_column(String(10), default="media")  # alta | media | baja
+    source: Mapped[str] = mapped_column(String(12), default="sugerencia")
+    status: Mapped[str] = mapped_column(String(12), default="sugerida")
+    next_due: Mapped[date] = mapped_column(Date, index=True)
+    last_done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = now()
+
+
+class CareRecord(Base):
+    """Cada vez que la persona marca un cuidado como realizado. Solo se agrega."""
+    __tablename__ = "care_records"
+    id: Mapped[uuid.UUID] = pk()
+    task_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("care_tasks.id", ondelete="CASCADE"), index=True)
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("equipment_assets.id", ondelete="CASCADE"), index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    done_on: Mapped[date] = mapped_column(Date)
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = now()

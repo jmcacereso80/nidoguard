@@ -11,6 +11,7 @@ anthropic
 qrcode[pil]
 reportlab
 pillow
+pillow-heif
 python-multipart
 
 [dev]

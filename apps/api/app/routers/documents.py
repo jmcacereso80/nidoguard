@@ -172,9 +172,3 @@ def save_warranty(asset_id: uuid.UUID, body: WarrantyIn, user: User = Depends(cu
     db.commit()
     return {"ends_on": w.ends_on.isoformat(), "provider": w.provider, "price": w.price, "document_id": str(w.document_id)}
 
-
-@router.get("/{asset_id}/care")
-def care(asset_id: uuid.UUID, org: Organization = Depends(current_org), db: Session = Depends(get_db)):
-    """Plan de cuidado. Por ahora vacio: la fase de cuidado llega despues."""
-    a = _own(db, org, asset_id)
-    return {"model_confirmed": bool(a.model), "tasks": []}

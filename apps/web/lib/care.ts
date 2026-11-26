@@ -11,7 +11,8 @@ export type DocumentsData = { manuals: ManualItem[]; model_confirmed?: boolean; 
 export type CareSource = "manual" | "sugerencia";
 export type Unit = "dia" | "semana" | "mes" | "anio";
 export type Every = { n: number; unit: Unit };
-export type CareTask = { id: string; title: string; detail: string | null; every: Every; next_due: string | null; source: CareSource; instructions: string | null; done_at: string | null };
+export type Priority = "alta" | "media" | "baja";
+export type CareTask = { id: string; title: string; detail: string | null; every: Every; next_due: string | null; source: CareSource; instructions: string | null; done_at: string | null; priority?: Priority; confirmed?: boolean };
 export type CareData = { model_confirmed: boolean; tasks: CareTask[] };
 
 export const SOURCE_LABEL: Record<CareSource, string> = {
@@ -73,4 +74,15 @@ export function groupByFrequency(tasks: CareTask[]): CareGroup[] {
   }
   for (const g of out) g.tasks.sort((a, b) => (a.next_due ?? "9999").localeCompare(b.next_due ?? "9999") || everyDays(a.every) - everyDays(b.every));
   return out.filter((g) => g.tasks.length > 0);
+}
+
+export type DueView = { text: string; tone: "vencido" | "hoy" | "normal" };
+/** Cuándo toca un cuidado: "Toca hoy", "Toca mañana", "Próximo: 15 ene" o "Venció el 20 nov". */
+export function dueLabel(nextDue: string, now: Date = new Date()): DueView {
+  const d = daysLeft(nextDue, now);
+  const corta = new Date(`${nextDue}T00:00:00`).toLocaleDateString("es-MX", { day: "numeric", month: "short" }).replace(/\./g, "");
+  if (d < 0) return { text: `Venció el ${corta}`, tone: "vencido" };
+  if (d === 0) return { text: "Toca hoy", tone: "hoy" };
+  if (d === 1) return { text: "Toca mañana", tone: "normal" };
+  return { text: `Próximo: ${corta}`, tone: "normal" };
 }

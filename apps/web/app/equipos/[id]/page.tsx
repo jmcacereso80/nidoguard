@@ -226,7 +226,7 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
         </div>
       )}
       {tab === "Documentos" && <Documentos id={id} />}
-      {tab === "Cuidado" && <Cuidado id={id} />}
+      {tab === "Cuidado" && <Cuidado id={id} ready={!STILL_READING.includes(a.status)} />}
       {tab === "Historial" && (
         <ol className="flex flex-col gap-3">
           {a.events.map((e, i) => (

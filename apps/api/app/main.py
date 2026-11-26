@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
-from .routers import assets, documents, kits, me, tags
+from .routers import assets, care, documents, kits, me, tags
 
 app = FastAPI(title="NidoGuard API", version="0.1.0")
 app.add_middleware(
@@ -14,6 +14,7 @@ app.include_router(kits.router)
 app.include_router(tags.router)
 app.include_router(assets.router)
 app.include_router(documents.router)
+app.include_router(care.router)
 
 
 @app.get("/health")
