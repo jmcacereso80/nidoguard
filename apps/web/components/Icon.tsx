@@ -29,6 +29,19 @@ const P: Record<string, React.ReactNode> = {
   cloud: <path d="M6 14a4 4 0 0 1-1-7.9A4 4 0 0 1 12 4a4 4 0 0 1 7 2.1A4 4 0 0 1 18 14zM6 14v6h12v-6" />,
   bolt: <path d="M13 2 4 14h7l-1 8 9-12h-7z" />,
   back: <path d="m15 6-6 6 6 6" />,
+  cafetera: <><path d="M4 21h14M5 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3" /><path d="M5 8h12M11 8v2.5" /><path d="M9 21v-6.5h6V21" /><path d="M15 15.5h1.2a1.5 1.5 0 0 1 0 3H15" /></>,
+  licuadora: <><path d="M7 3h10l-1.4 11H8.4z" /><path d="M6 3h12" /><path d="M17 6h2v4h-1.6" /><rect x="6" y="14" width="12" height="7" rx="2.5" /><path d="M12 17.5h.01" /></>,
+  horno: <><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M3 9h18" /><path d="M7 6.5h.01M10 6.5h.01" /><rect x="6.5" y="11.5" width="11" height="6" rx="1.5" /></>,
+  microondas: <><rect x="3" y="5" width="18" height="14" rx="3" /><rect x="6" y="8" width="8" height="8" rx="1.5" /><path d="M17.5 8.5h.01M17.5 12h.01M17.5 15.5h.01" /></>,
+  estufa: <><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="2.5" /><circle cx="15.5" cy="8.5" r="2.5" /><circle cx="8.5" cy="15.5" r="2.5" /><circle cx="15.5" cy="15.5" r="2.5" /></>,
+  lavavajillas: <><rect x="4" y="2.5" width="16" height="19" rx="3" /><path d="M4 7h16M7.5 4.8h.01M10.5 4.8h.01" /><circle cx="12" cy="14.5" r="4" /><path d="M10 14.5a2 2 0 0 1 2-2" /></>,
+  tostador: <><rect x="3" y="9" width="18" height="10" rx="3" /><path d="M7 9V6.5A1.5 1.5 0 0 1 8.5 5h1A1.5 1.5 0 0 1 11 6.5V9M13 9V6.5A1.5 1.5 0 0 1 14.5 5h1A1.5 1.5 0 0 1 17 6.5V9" /><path d="M17.5 14h1.5" /></>,
+  freidora: <><rect x="4" y="3" width="16" height="18" rx="5" /><path d="M9 7h6" /><rect x="7.5" y="11" width="9" height="6" rx="2" /><path d="M10 14h4" /></>,
+  batidora: <><path d="M4 10c0-4 3-7 7-7h5a3 3 0 0 1 3 3v4z" /><path d="M12 10v4" /><path d="M5 14h14c0 4-3 6-7 6s-7-2-7-6z" /><path d="M9 21h6" /></>,
+  hervidor: <><path d="M5 20v-7a6 6 0 0 1 12 0v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z" /><path d="m17 11 4-3" /><path d="M5 11H3.6a1.6 1.6 0 0 0 0 3H5" /><path d="M11 7V4.5" /></>,
+  olla: <><path d="M5 10h14v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3z" /><path d="M5 10a7 5 0 0 1 14 0" /><path d="M5 13H2.5M19 13h2.5" /><path d="M12 5V3.5" /></>,
+  campana: <><path d="M8 3h8l3 9H5z" /><path d="M3 12h18" /><path d="M9 16v3M12 16v4M15 16v3" /></>,
+  dispensador: <><path d="M9 2h6l1 4H8z" /><rect x="6" y="9" width="12" height="12" rx="2.5" /><path d="M10 14h4M12 14v3" /></>,
 };
 
 export function Icon({ name, size = 22, stroke = 2 }: { name: keyof typeof P | string; size?: number; stroke?: number }) {
@@ -40,12 +53,4 @@ export function Icon({ name, size = 22, stroke = 2 }: { name: keyof typeof P | s
 
 export const SPACE_ICONS = ["home", "sofa", "bed", "cloud", "wrench", "tv"] as const;
 
-/** Icono segun el tipo o el nombre del equipo. */
-export function equipmentIcon(a: { category?: string | null; name: string }) {
-  const t = `${a.category ?? ""} ${a.name}`.toLowerCase();
-  if (/refri|nevera|congel/.test(t)) return "fridge";
-  if (/lava|secad/.test(t)) return "washer";
-  if (/aire|clima|minisplit/.test(t)) return "ac";
-  if (/tele|tv|pantalla/.test(t)) return "tv";
-  return "box";
-}
+export { equipmentIcon } from "@/lib/equipmentIcon";
