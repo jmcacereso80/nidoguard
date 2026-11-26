@@ -11,7 +11,7 @@ from ..models import (
     ReadingStatus, SmartTag, Space, Property, TagStatus, User,
 )
 from ..security import current_org, current_user
-from ..services import readings
+from ..services import manuales, readings
 from ..services.storage import ALLOWED_TYPES, MAX_BYTES, Storage, get_storage
 
 router = APIRouter(prefix="/assets", tags=["equipos"])
@@ -229,7 +229,7 @@ class AssetEditIn(BaseModel):
 
 
 @router.patch("/{asset_id}")
-def edit_asset(asset_id: uuid.UUID, body: AssetEditIn, user: User = Depends(current_user),
+def edit_asset(asset_id: uuid.UUID, body: AssetEditIn, tasks: BackgroundTasks, user: User = Depends(current_user),
                org: Organization = Depends(current_org), db: Session = Depends(get_db)):
     a = _own(db, org, asset_id)
     changes = body.model_dump(exclude_unset=True)
@@ -252,6 +252,8 @@ def edit_asset(asset_id: uuid.UUID, body: AssetEditIn, user: User = Depends(curr
         a.extra = {**(a.extra or {}), "nombre_pendiente": False}
     _event(db, a, "edicion", user, fields=sorted(changes.keys()))
     db.commit()
+    if {"brand", "model"} & set(changes):
+        manuales.pedir_manual(db, a, tasks)
     return _out(a)
 
 
@@ -276,7 +278,7 @@ def delete_asset(asset_id: uuid.UUID, org: Organization = Depends(current_org), 
 
 
 @router.patch("/{asset_id}/manual")
-def manual_data(asset_id: uuid.UUID, body: ManualIn, user: User = Depends(current_user),
+def manual_data(asset_id: uuid.UUID, body: ManualIn, tasks: BackgroundTasks, user: User = Depends(current_user),
                 org: Organization = Depends(current_org), db: Session = Depends(get_db)):
     a = _own(db, org, asset_id)
     data = body.model_dump(exclude_none=True)
@@ -286,11 +288,12 @@ def manual_data(asset_id: uuid.UUID, body: ManualIn, user: User = Depends(curren
     a.status = AssetStatus.completo
     _event(db, a, "datos_manuales", user, fields=list(data))
     db.commit()
+    manuales.pedir_manual(db, a, tasks)
     return _out(a)
 
 
 @router.post("/{asset_id}/confirm")
-def confirm(asset_id: uuid.UUID, body: ConfirmIn, user: User = Depends(current_user),
+def confirm(asset_id: uuid.UUID, body: ConfirmIn, tasks: BackgroundTasks, user: User = Depends(current_user),
             org: Organization = Depends(current_org), db: Session = Depends(get_db)):
     a = _own(db, org, asset_id)
     r = _latest_reading(db, a.id)
@@ -309,6 +312,7 @@ def confirm(asset_id: uuid.UUID, body: ConfirmIn, user: User = Depends(current_u
     a.status = AssetStatus.completo
     _event(db, a, "confirmado", user)
     db.commit()
+    manuales.pedir_manual(db, a, tasks)
     return _out(a)
 
 

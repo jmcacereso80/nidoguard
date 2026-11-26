@@ -221,3 +221,30 @@ class Warranty(Base):
     provider: Mapped[str | None] = mapped_column(String(200))
     price: Mapped[float | None] = mapped_column(Float)  # MXN; se puede corregir despues
     updated_at: Mapped[datetime] = now()
+
+
+class ModelKnowledge(Base):
+    """Base de conocimiento por modelo (marca + modelo normalizados): se busca una vez y se reutiliza.
+    Es compartida entre hogares: nunca guarda datos de personas (serie, fotos, direccion)."""
+    __tablename__ = "model_knowledge"
+    id: Mapped[uuid.UUID] = pk()
+    model_key: Mapped[str] = mapped_column(String(200), unique=True)
+    brand: Mapped[str] = mapped_column(String(120))
+    model: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(20))  # buscando | listo | no_encontrado
+    title: Mapped[str | None] = mapped_column(String(300))
+    source_url: Mapped[str | None] = mapped_column(String(800))  # enlace al sitio original
+    storage_key: Mapped[str | None] = mapped_column(String(500))  # copia propia en nidoguard-knowledge
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_try_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = now()
+
+
+class ModelResearchRun(Base):
+    """Cada corrida de busqueda de manual (estado, fecha y detalle), para saber que paso."""
+    __tablename__ = "model_research_runs"
+    id: Mapped[uuid.UUID] = pk()
+    model_key: Mapped[str] = mapped_column(String(200), index=True)
+    status: Mapped[str] = mapped_column(String(20))  # listo | no_encontrado | error
+    detail: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = now()

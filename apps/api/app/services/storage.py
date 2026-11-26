@@ -14,6 +14,7 @@ class Storage(Protocol):
     def head(self, key: str) -> dict | None: ...
     def get_bytes(self, key: str) -> bytes: ...
     def delete(self, key: str) -> None: ...
+    def put_bytes(self, key: str, data: bytes, content_type: str) -> None: ...
 
 
 def derive_r2_secret(api_token: str) -> str:
@@ -22,10 +23,10 @@ def derive_r2_secret(api_token: str) -> str:
 
 
 class R2Storage:
-    def __init__(self):
+    def __init__(self, bucket: str | None = None):
         s = get_settings()
         secret = s.r2_secret_access_key or (derive_r2_secret(s.cloudflare_api_token) if s.cloudflare_api_token else "")
-        self.bucket = s.r2_bucket
+        self.bucket = bucket or s.r2_bucket
         self.client = boto3.client(
             "s3",
             endpoint_url=f"https://{s.cloudflare_account_id}.r2.cloudflarestorage.com",
@@ -55,5 +56,14 @@ class R2Storage:
         self.client.delete_object(Bucket=self.bucket, Key=key)
 
 
+    def put_bytes(self, key, data, content_type):
+        self.client.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type)
+
+
 def get_storage() -> Storage:
     return R2Storage()
+
+
+def get_knowledge_storage() -> Storage:
+    """Bucket de la base de conocimiento por modelo (manuales). Nunca guarda datos de personas."""
+    return R2Storage(bucket=get_settings().r2_knowledge_bucket)

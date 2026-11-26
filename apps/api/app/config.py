@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     cloudflare_api_token: str = ""
 
     r2_bucket: str = "nidoguard-private"
+    r2_knowledge_bucket: str = "nidoguard-knowledge"
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
     app_url: str = "https://app.nidoguard.com"
