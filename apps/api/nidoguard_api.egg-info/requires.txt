@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+sqlalchemy>=2
+psycopg[binary]
+alembic
+pydantic-settings
+pyjwt[crypto]
+httpx
+boto3
+anthropic
+qrcode[pil]
+reportlab
+pillow
+python-multipart
+
+[dev]
+pytest

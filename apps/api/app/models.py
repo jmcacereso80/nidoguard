@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from sqlalchemy import (
-    DateTime, Enum, ForeignKey, Index, Integer, String, Text, Boolean, Float, func, text,
+    Date, DateTime, Enum, ForeignKey, Index, Integer, String, Text, Boolean, Float, func, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -192,3 +192,32 @@ class ClaimAttempt(Base):
     ip: Mapped[str | None] = mapped_column(String(64), index=True)
     success: Mapped[bool] = mapped_column(Boolean)
     created_at: Mapped[datetime] = now()
+
+
+class AssetDocument(Base):
+    """Garantia o factura del equipo (archivo privado en R2). El hash evita procesar dos veces el mismo archivo."""
+    __tablename__ = "asset_documents"
+    id: Mapped[uuid.UUID] = pk()
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("equipment_assets.id", ondelete="CASCADE"), index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))  # garantia | factura
+    filename: Mapped[str] = mapped_column(String(200))
+    storage_key: Mapped[str] = mapped_column(String(500), unique=True)
+    content_type: Mapped[str] = mapped_column(String(80))
+    size: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    uploaded: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = now()
+
+
+class Warranty(Base):
+    """Garantia confirmada por la persona: fecha de vencimiento (obligatoria), proveedor y precio (opcionales)."""
+    __tablename__ = "warranties"
+    id: Mapped[uuid.UUID] = pk()
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("equipment_assets.id", ondelete="CASCADE"), unique=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    document_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("asset_documents.id", ondelete="CASCADE"))
+    ends_on: Mapped[date] = mapped_column(Date)
+    provider: Mapped[str | None] = mapped_column(String(200))
+    price: Mapped[float | None] = mapped_column(Float)  # MXN; se puede corregir despues
+    updated_at: Mapped[datetime] = now()
