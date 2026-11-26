@@ -137,6 +137,22 @@ def new_photo(asset_id: uuid.UUID, body: PhotoIn, org: Organization = Depends(cu
             "headers": {"Content-Type": body.content_type}}
 
 
+@router.post("/{asset_id}/releer")
+def read_again(asset_id: uuid.UUID, tasks: BackgroundTasks, org: Organization = Depends(current_org),
+               db: Session = Depends(get_db)):
+    """Vuelve a leer la placa con las fotos que ya estan subidas (p. ej. tras un error de la IA)."""
+    a = _own(db, org, asset_id)
+    img = db.scalar(select(AssetImage).where(AssetImage.asset_id == a.id, AssetImage.uploaded.is_(True))
+                    .order_by((AssetImage.kind != "placa").asc(), AssetImage.created_at.desc()))
+    if not img:
+        raise HTTPException(409, "Este equipo no tiene una foto subida para leer.")
+    a.status = AssetStatus.registrado
+    db.add(AssetReading(asset_id=a.id, organization_id=org.id, source="ia", status=ReadingStatus.procesando))
+    db.commit()
+    tasks.add_task(readings.enqueue_reading, a.id, img.id)
+    return {"ok": True}
+
+
 @router.post("/{asset_id}/images/{image_id}/uploaded")
 def image_uploaded(asset_id: uuid.UUID, image_id: uuid.UUID, tasks: BackgroundTasks,
                    org: Organization = Depends(current_org), db: Session = Depends(get_db),

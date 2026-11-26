@@ -7,7 +7,7 @@ from PIL import Image, ImageOps
 from pillow_heif import register_heif_opener
 
 register_heif_opener()  # los iPhone guardan HEIC; Pillow solo no lo abre
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..config import get_settings
 
@@ -25,6 +25,16 @@ class PlateExtraction(BaseModel):
     model: Field_ = Field(default_factory=Field_)
     serial: Field_ = Field(default_factory=Field_)
     transcript: str = Field(default="", description="Todo el texto visible de la placa, literal")
+
+    @field_validator("category", "brand", "model", "serial", mode="before")
+    @classmethod
+    def _texto_suelto(cls, v):
+        # A veces el modelo devuelve el dato como texto y no como {valor, confianza}: lo aceptamos.
+        if isinstance(v, str):
+            return {"value": v, "confidence": 0.6}
+        if v is None:
+            return {"value": None, "confidence": 0.0}
+        return v
 
 
 # Se estandariza a tres datos para todos los equipos (televisores, hornos, etc. no traen mas).

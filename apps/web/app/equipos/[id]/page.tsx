@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell, Card, ErrorNote, Pronto } from "@/components/Shell";
 import { Icon, equipmentIcon } from "@/components/Icon";
 import { Asset, Space, useApi } from "@/lib/api";
-import { statusInfo } from "@/lib/assetStatus";
+import { STILL_READING, statusInfo } from "@/lib/assetStatus";
 import { RetakePhoto } from "@/components/RetakePhoto";
 
 type Detail = Asset & {
@@ -28,7 +28,11 @@ const LABEL: Record<Field, string> = { name: "Nombre", category: "Tipo", brand: 
 export default function Equipo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const api = useApi(); const qc = useQueryClient(); const router = useRouter();
-  const q = useQuery({ queryKey: ["asset", id], queryFn: () => api<Detail>(`/assets/${id}`) });
+  // Mientras la IA lee la placa, la ficha se actualiza sola.
+  const q = useQuery({
+    queryKey: ["asset", id], queryFn: () => api<Detail>(`/assets/${id}`),
+    refetchInterval: (query) => (query.state.data && STILL_READING.includes(query.state.data.status) ? 3000 : false),
+  });
   const spaces = useQuery({ queryKey: ["spaces"], queryFn: () => api<Space[]>("/spaces") });
   const [manual, setManual] = useState({ brand: "", model: "", serial: "" });
   const [edit, setEdit] = useState<Record<string, string> | null>(null);
@@ -63,6 +67,12 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
       await api(`/assets/${id}/manual`, { method: "PATCH", body: JSON.stringify(Object.fromEntries(Object.entries(manual).filter(([, v]) => v.trim()))) });
       await refresh();
     } catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
+  }
+
+  async function leerOtraVez() {
+    setErr(null); setOkMsg(null); setBusy(true);
+    try { await api(`/assets/${id}/releer`, { method: "POST" }); await refresh(); }
+    catch (x) { setErr((x as Error).message); } finally { setBusy(false); }
   }
 
   async function confirmData() {
@@ -125,6 +135,9 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
             <RetakePhoto kind="equipo" assetId={id} onDone={() => refresh()} />
           )}
 
+          {(a.status === "necesita_foto" || a.status === "faltan_datos") && (
+            <button className="btn btn-ghost w-full" disabled={busy} onClick={leerOtraVez}>Leer la placa otra vez</button>
+          )}
           {a.status !== "completo" && <RetakePhoto assetId={id} onDone={() => refresh()} />}
 
           {(a.status === "por_confirmar" || a.status === "faltan_datos") && a.reading && (
