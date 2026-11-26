@@ -4,7 +4,9 @@ from datetime import date
 import pytest
 
 from app.main import app
-from app.models import AssetStatus, EquipmentAsset, Warranty
+from sqlalchemy import delete
+
+from app.models import AssetStatus, CareTemplate, EquipmentAsset, Warranty
 from app.services.care_planner import CareItem, CarePlan, add_every, first_due, get_planner
 from app.services.storage import get_storage
 from tests.test_crud_equipo import _register
@@ -45,6 +47,7 @@ class FakePlanner:
 def caso(make_client, db, monkeypatch):
     monkeypatch.setattr("app.routers.care.today_mx", lambda: HOY)
     app.dependency_overrides[get_storage] = lambda: FakeStorage()
+    db.execute(delete(CareTemplate)); db.commit()  # los planes aprendidos son compartidos: cada prueba empieza sin ninguno
     planner = FakePlanner()
     app.dependency_overrides[get_planner] = lambda: planner
     c, tokens = setup(make_client, db, tags=4)
@@ -231,3 +234,74 @@ def test_segundo_plano_solo_con_equipo_confirmado_y_sin_error(caso, db, monkeypa
     monkeypatch.setattr("app.services.care.get_planner", lambda: FakePlanner(fail=True))
     svc.prepare_in_background(a2.id)
     assert c.get(f"/assets/{asset2['id']}/care").json()["tasks"] == []
+
+
+def _equipo(c, db, token, nombre, brand=None, model=None, category=None):
+    a = _register(c, token, name=nombre, space="Cocina")
+    row = db.get(EquipmentAsset, uuid.UUID(a["id"]))
+    row.brand, row.model, row.category = brand, model, category
+    db.commit()
+    return a
+
+
+def test_el_plan_se_aprende_una_vez_por_modelo_y_se_reutiliza(caso, db):
+    from app.models import CareTemplate, CareTask
+    from sqlalchemy import select
+    c, a, planner, tokens = caso
+    a1 = _equipo(c, db, tokens[1], "Lavadora de la cocina", "LG", "WA-17 X", "lavadora")
+    a2 = _equipo(c, db, tokens[2], "Lavadora de mamá", "lg", "wa17x", "Lavadora")  # mismo modelo escrito distinto
+    t1 = c.post(f"/assets/{a1['id']}/care/generate").json()["tasks"]
+    t2 = c.post(f"/assets/{a2['id']}/care/generate").json()["tasks"]
+    assert planner.calls == 1  # la IA solo se llamo para el primero
+    assert sorted(t["title"] for t in t1) == sorted(t["title"] for t in t2) and len(t1) == 4
+    plantilla = db.scalars(select(CareTemplate).where(CareTemplate.kind == "modelo")).all()
+    assert len(plantilla) == 1 and plantilla[0].uses == 2 and plantilla[0].verified is False
+    assert plantilla[0].key == "modelo|lg|wa17x" and plantilla[0].brand == "LG"
+    # cada equipo tiene sus propias tareas: marcar una en uno no mueve la del otro
+    c.post(f"/care/{t1[0]['id']}/done")
+    otra = [t for t in c.get(f"/assets/{a2['id']}/care").json()["tasks"] if t["title"] == t1[0]["title"]][0]
+    assert otra["done_at"] is None
+    assert db.scalar(select(CareTask).where(CareTask.id == uuid.UUID(otra["id"]))).last_done_at is None
+
+
+def test_otro_modelo_aprende_su_propio_plan(caso, db):
+    c, a, planner, tokens = caso
+    a1 = _equipo(c, db, tokens[1], "Lavadora", "LG", "WA17", "lavadora")
+    a2 = _equipo(c, db, tokens[2], "Otra lavadora", "LG", "WA20", "lavadora")
+    c.post(f"/assets/{a1['id']}/care/generate"); c.post(f"/assets/{a2['id']}/care/generate")
+    assert planner.calls == 2
+
+
+def test_sin_modelo_se_comparte_por_tipo_y_sin_tipo_no_se_comparte(caso, db):
+    c, a, planner, tokens = caso
+    r1 = _equipo(c, db, tokens[1], "Refri de la casa", category="refrigerador")
+    r2 = _equipo(c, db, tokens[2], "Refri de la oficina", category="Refrigerador")
+    c.post(f"/assets/{r1['id']}/care/generate"); c.post(f"/assets/{r2['id']}/care/generate")
+    assert planner.calls == 1  # mismo tipo: un solo plan
+    # sin marca, modelo ni tipo: el nombre de la persona no se comparte; se genera para ese equipo
+    c.post(f"/assets/{a['id']}/care/generate")
+    assert planner.calls == 2
+
+
+def test_el_nombre_de_la_persona_no_llega_al_plan_compartido(caso, db):
+    c, a, _, tokens = caso
+    vistos = []
+    class Espia(FakePlanner):
+        def plan(self, category, name, brand, model):
+            vistos.append(name); return super().plan(category, name, brand, model)
+    app.dependency_overrides[get_planner] = lambda: Espia()
+    x = _equipo(c, db, tokens[1], "La lavadora de Juan en Polanco", "LG", "WA17", "lavadora")
+    c.post(f"/assets/{x['id']}/care/generate")
+    assert vistos == ["lavadora"]
+
+
+def test_si_la_ia_falla_no_queda_plantilla(caso, db):
+    from app.models import CareTemplate
+    from sqlalchemy import select
+    c, a, _, tokens = caso
+    x = _equipo(c, db, tokens[1], "Lavadora", "LG", "WA17", "lavadora")
+    app.dependency_overrides[get_planner] = lambda: FakePlanner(fail=True)
+    assert c.post(f"/assets/{x['id']}/care/generate").status_code == 503
+    assert db.scalars(select(CareTemplate)).all() == []
+    app.dependency_overrides[get_planner] = lambda: FakePlanner()
+    assert c.post(f"/assets/{x['id']}/care/generate").status_code == 200

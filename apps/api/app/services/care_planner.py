@@ -78,7 +78,7 @@ class ClaudeCarePlanner:
         self.name = model or s.care_model
 
     def plan(self, category: str | None, name: str, brand: str | None, model: str | None) -> CarePlan:
-        datos = [f"Tipo de equipo: {category or name}", f"Nombre que le puso la persona: {name}"]
+        datos = [f"Tipo de equipo: {category or name}"]
         if brand:
             datos.append(f"Marca: {brand}")
         if model:

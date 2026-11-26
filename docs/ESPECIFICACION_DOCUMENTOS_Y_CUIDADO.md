@@ -59,3 +59,12 @@ Hecho, con pruebas: tablas `care_tasks` y `care_records` (migración 0005), gene
 Reglas: todo sale con origen "sugerencia" (el manual solo se enlaza, no se lee; el origen "manual del fabricante" llega con la base de conocimiento). La primera fecha es la frecuencia pero nunca más de 30 días. El día de hoy se cuenta en hora de la Ciudad de México.
 También hecho: al confirmar un equipo (confirmar, confirmar varios, corregir o escribir datos a mano) los cuidados se preparan solos en segundo plano (`prepare_in_background`, solo si el equipo está confirmado; si falla, se reintenta al abrir la pestaña Cuidado). Rutas para la pantalla del menú: `GET /care/warranties` y `GET /care/history`. Pantalla `/cuidado` hecha según `docs/mockups/Cuidado.dc.html`: Próximas (semana con puntos y filtro por día), Vencidas, Garantías e Historial, con "Marcar como realizado" y "Reprogramar".
 Pendiente: resumen semanal de recordatorios (push o WhatsApp) y cuidados con origen en el manual del fabricante (base de conocimiento por modelo).
+
+### Planes de cuidado compartidos (migración 0006, tabla `care_templates`)
+El plan se aprende **una sola vez por modelo** y se reutiliza: al preparar los cuidados de un equipo se busca primero su plan guardado y solo se llama a la IA si es la primera vez.
+- Clave: `modelo|marca|modelo` normalizada (sin acentos, mayúsculas ni símbolos: "LG WA-17 X" = "lg wa17x"). Si el equipo no tiene marca y modelo, `tipo|lavadora`. Sin ninguno de los dos no se comparte y se genera para ese equipo.
+- Un candado por clave evita que dos equipos del mismo modelo confirmados a la vez llamen dos veces a la IA.
+- La plantilla no guarda datos de personas: a la IA compartida nunca llega el nombre que la persona le puso al equipo.
+- Cada equipo recibe su **propia copia** de las tareas (fechas, hecho, descartado y confirmado son suyos).
+- Campos `source` (`sugerencia` | `manual`), `verified` (falso hasta que alguien la revise) y `uses` (cuántos equipos la usaron). Cuando llegue la base de conocimiento, el plan se mejora leyendo el manual y se marca `source=manual`, sin cambiar las pantallas.
+- Los equipos que ya tenían tareas no se regeneran si cambian marca o modelo.

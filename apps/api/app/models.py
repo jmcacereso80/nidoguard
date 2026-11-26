@@ -282,3 +282,22 @@ class CareRecord(Base):
     done_on: Mapped[date] = mapped_column(Date)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = now()
+
+
+class CareTemplate(Base):
+    """Plan de cuidados aprendido una sola vez y compartido: por marca y modelo ('modelo|lg|wa17') o,
+    si no hay modelo, por tipo de equipo ('tipo|lavadora'). No guarda datos de ninguna persona.
+    source: 'sugerencia' (propuesto por IA, sin verificar) o 'manual' (leido del manual; fase posterior)."""
+    __tablename__ = "care_templates"
+    id: Mapped[uuid.UUID] = pk()
+    key: Mapped[str] = mapped_column(String(300), unique=True)
+    kind: Mapped[str] = mapped_column(String(10))  # modelo | tipo
+    brand: Mapped[str | None] = mapped_column(String(120))
+    model: Mapped[str | None] = mapped_column(String(120))
+    category: Mapped[str | None] = mapped_column(String(80))
+    items: Mapped[list] = mapped_column(JSONB)
+    source: Mapped[str] = mapped_column(String(12), default="sugerencia")
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    planner: Mapped[str | None] = mapped_column(String(80))
+    uses: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = now()
