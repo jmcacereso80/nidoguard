@@ -79,33 +79,33 @@ export function Cuidado({ id, ready = true }: { id: string; ready?: boolean }) {
 
       {groups.map((g) => (
         <section key={g.key} aria-label={g.label}>
-          <h2 className="mb-2 px-1 text-[15px] font-extrabold text-navy">{g.label}</h2>
-          <div className="flex flex-col gap-3">
+          <h2 className="mb-2 px-1 text-[17px] font-extrabold">{g.label}</h2>
+          <div className="flex flex-col gap-2.5">
             {g.tasks.map((t) => {
               const due = t.next_due ? dueLabel(t.next_due) : null;
               const porConfirmar = t.source === "sugerencia" && !t.confirmed;
               const ocupado = accion.isPending || descartar.isPending;
               return (
-                <article key={t.id} className="g rounded-[22px] p-4">
+                <article key={t.id} className="g rounded-[26px] px-4 py-3.5">
                   <div className="flex items-start gap-3">
-                    <span className="icon-tile"><Icon name="wrench" size={20} /></span>
+                    <span aria-hidden="true" className="icon-tile" style={{ background: porConfirmar ? "#F1E2D3" : "#E4EDF4" }}><Icon name="wrench" size={20} /></span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[15px] font-extrabold">{t.title}</p>
-                      <p className="text-[13px] text-muted">
+                      <p className="text-[15px] font-extrabold leading-[1.3]">{t.title}</p>
+                      <p className="mt-0.5 text-[12.5px] text-muted">
                         {everyShort(t.every)}{due ? <> · <span className={due.tone === "normal" ? "" : "font-bold text-[var(--ng-warn)]"}>{due.text}</span></> : null}
                       </p>
-                      {t.detail && <p className="mt-0.5 text-[13px] text-muted">{t.detail}</p>}
-                      <span className={`chip mt-2 ${t.source === "manual" || t.confirmed ? "text-[var(--ng-ok)]" : ""}`}>
-                        <Icon name={t.source === "manual" || t.confirmed ? "check" : "sparkle"} size={13} stroke={2.4} />
-                        {t.confirmed && t.source === "sugerencia" ? "Confirmado por ti" : SOURCE_LABEL[t.source]}</span>
                     </div>
                   </div>
-                  <button type="button" aria-expanded={open === t.id} onClick={() => setOpen(open === t.id ? null : t.id)}
-                    className="mt-3 flex h-10 w-full items-center justify-between rounded-full px-1 text-[14px] font-bold text-navy">
-                    Ver instrucciones y opciones<Icon name="chevrondown" size={16} stroke={2.4} />
-                  </button>
+                  <div className="mt-2.5 flex items-center justify-between gap-3">
+                    <span className={`inline-flex min-w-0 items-center gap-1.5 text-[12px] font-bold ${porConfirmar ? "text-[#8F5A1F]" : "text-[var(--ng-ok)]"}`}>
+                      <Icon name={t.source === "manual" ? "file" : porConfirmar ? "sparkle" : "check"} size={14} stroke={2.2} />
+                      <span className="min-w-0">{t.confirmed && t.source === "sugerencia" ? "Confirmado por ti" : SOURCE_LABEL[t.source]}</span></span>
+                    <button type="button" aria-expanded={open === t.id} onClick={() => setOpen(open === t.id ? null : t.id)}
+                      className="flex-none text-[13px] font-extrabold text-navy">{open === t.id ? "Ocultar" : "Ver instrucciones"}</button>
+                  </div>
                   {open === t.id && (
-                    <div className="flex flex-col gap-3 px-1 pb-1">
+                    <div className="mt-3 flex flex-col gap-3 border-t border-navy/10 pt-3">
+                      {t.detail && <p className="text-[13px] text-muted">{t.detail}</p>}
                       {t.instructions && <p className="whitespace-pre-line text-[14px] leading-relaxed text-[var(--ng-body)]">{t.instructions}</p>}
                       <div className="flex gap-2">
                         <button type="button" disabled={ocupado} className="btn !min-h-11 flex-1 !px-3 !text-[14px]"
