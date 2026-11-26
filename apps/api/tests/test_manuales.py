@@ -87,3 +87,12 @@ def test_documentos_muestra_manual_listo_con_enlace_a_la_copia(make_client, db, 
     db.commit()
     m = c.get(f"/assets/{a['id']}/documents").json()["manuals"][0]
     assert m["status"] == "listo" and m["url"] == "https://fake-k/manuales/x/y.pdf" and "mabe.com.mx" in m["note"]
+
+
+def test_parse_apify_saca_los_enlaces_organicos():
+    from app.services.manuales import parse_apify_items
+    items = [{"searchQuery": {"term": "x"}, "organicResults": [
+                {"url": "https://www.mabe.com.mx/m.pdf", "title": "Manual Mabe"},
+                {"url": "", "title": "sin url"}]},
+             {"organicResults": [{"url": "https://otro.mx/a.pdf", "title": "A"}]}]
+    assert parse_apify_items(items) == [("https://www.mabe.com.mx/m.pdf", "Manual Mabe"), ("https://otro.mx/a.pdf", "A")]

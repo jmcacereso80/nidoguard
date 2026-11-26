@@ -58,6 +58,14 @@ def ensure_search(db: Session, brand: str, model: str) -> str | None:
     return key
 
 
+FICHA_WORDS = ("ficha", "comercial", "hojatecnica", "datasheet", "catalogo", "brochure")
+
+
+def _es_ficha(url: str) -> bool:
+    """Una ficha comercial o catalogo no es el manual, aunque el texto del enlace diga 'manuales'."""
+    return any(w in norm(urlparse(url).path) for w in FICHA_WORDS)
+
+
 def _es_pdf(url: str) -> bool:
     return urlparse(url).path.lower().endswith(".pdf")  # ignora ?context=... de los sitios de la marca
 
@@ -78,11 +86,86 @@ def ordenar_candidatos(candidatos: list[tuple[str, str]], brand: str, model: str
         return -s
     sin_tiendas = [c for c in candidatos if not any(d in c[0].lower() for d in SKIP_DOMAINS)]
     # Solo PDF que digan ser manual o instrucciones (una ficha comercial no sirve como manual).
-    filtrados = [c for c in sin_tiendas if _es_pdf(c[0]) and any(w in norm(c[0] + " " + (c[1] or "")) for w in MANUAL_WORDS)]
+    filtrados = [c for c in sin_tiendas if _es_pdf(c[0]) and not _es_ficha(c[0])
+                 and any(w in norm(c[0] + " " + (c[1] or "")) for w in MANUAL_WORDS)]
     return sorted(filtrados, key=puntaje)
 
 
+APIFY_ACTOR = "apify~google-search-scraper"
+
+
+def parse_apify_items(items: list[dict]) -> list[tuple[str, str]]:
+    """Saca (url, titulo) de los resultados organicos que devuelve el actor de Google."""
+    out: list[tuple[str, str]] = []
+    for item in items or []:
+        for r in item.get("organicResults") or []:
+            if r.get("url"):
+                out.append((r["url"], r.get("title") or ""))
+    return out
+
+
+def buscar_en_google(brand: str, model: str) -> list[tuple[str, str]]:
+    """Consulta Google con Apify (apify/google-search-scraper) con dos formulaciones del manual."""
+    token = get_settings().apify_token
+    if not token:
+        return []
+    variantes = {model, model.upper().replace("O", "0")} if "O" in model.upper() or "0" in model else {model}
+    consultas = []
+    for v in sorted(variantes):  # Google trata O y 0 distinto: buscamos con las dos grafias
+        # Primero el formato que ya dio el resultado correcto: "marca modelo manual".
+        consultas += [f"{brand} {v} manual", f"manual de usuario {brand} {v} pdf", f"{v} manual"]
+    items: list[dict] = []
+    with httpx.Client(timeout=200) as c:
+        for q in consultas:
+            r = c.post(f"https://api.apify.com/v2/acts/{APIFY_ACTOR}/run-sync-get-dataset-items",
+                       headers={"Authorization": f"Bearer {token}"},
+                       json={"queries": q, "resultsPerPage": 20, "maxPagesPerQuery": 1,
+                             "languageCode": "es", "countryCode": "mx"})
+            r.raise_for_status()
+            items.extend(r.json())
+    return parse_apify_items(items)
+
+
+PDF_LINK = re.compile(r'<a[^>]+href="([^"]+\.pdf[^"]*)"[^>]*>(.*?)</a>', re.I | re.S)
+
+
+def pdfs_de_pagina(url: str) -> list[tuple[str, str]]:
+    """Paginas del modelo que enlazan su manual: sacamos los PDF que se presentan como manual."""
+    with httpx.Client(follow_redirects=True, timeout=30, headers={"User-Agent": "NidoGuard/1.0"}) as c:
+        r = c.get(url)
+    if r.status_code != 200:
+        return []
+    out = []
+    for href, texto in PDF_LINK.findall(r.text):
+        href = httpx.URL(url).join(href.replace("&amp;", "&")).__str__()
+        out.append((href, re.sub(r"<[^>]+>|\s+", " ", texto).strip()))
+    return out
+
+
+def enriquecer_con_paginas(candidatos: list[tuple[str, str]], model: str) -> list[tuple[str, str]]:
+    """Abre hasta 3 paginas que son del modelo exacto y suma los PDF de manual que enlazan."""
+    extra: list[tuple[str, str]] = []
+    paginas = [c for c in candidatos if not _es_pdf(c[0]) and _es_del_modelo(c, model)][:3]
+    for url, _ in paginas:
+        try:
+            extra.extend(pdfs_de_pagina(url))
+        except Exception as e:
+            log.info("no pude leer la pagina %s: %s", url, e)
+    return candidatos + extra
+
+
 def buscar_candidatos(brand: str, model: str) -> list[tuple[str, str]]:
+    """Primero Google (Apify) y las paginas del modelo; si no da nada util, Claude como respaldo."""
+    try:
+        encontrados = buscar_en_google(brand, model)
+        if encontrados:
+            return enriquecer_con_paginas(encontrados, model)
+    except Exception:
+        log.exception("fallo la busqueda con Apify; se usa Claude")
+    return buscar_candidatos_claude(brand, model)
+
+
+def buscar_candidatos_claude(brand: str, model: str) -> list[tuple[str, str]]:
     """Claude busca con la busqueda web; devolvemos los enlaces que encontro (url, titulo)."""
     import anthropic
     s = get_settings()

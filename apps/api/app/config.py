@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     clerk_api_key: str = ""  # clave publicable pk_...
     clerk_secret_key: str = ""
     claude_key: str = ""
+    apify_token: str = ""  # busqueda de Google con el actor apify/google-search-scraper
     cloudflare_account_id: str = ""
     cloudflare_api_token: str = ""
 

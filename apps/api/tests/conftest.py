@@ -61,3 +61,10 @@ def make_client(db):
 def no_background_reading(monkeypatch):
     from app.services import readings
     monkeypatch.setattr(readings, "enqueue_reading", lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
+def no_manual_search(monkeypatch):
+    """Las pruebas nunca llaman a Apify ni a Claude para buscar manuales; cada prueba lo activa si lo necesita."""
+    from app.services import manuales
+    monkeypatch.setattr(manuales, "run_search", lambda *a, **k: None)
