@@ -3,7 +3,8 @@ import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell, Card, ErrorNote } from "@/components/Shell";
-import { Space, useApi } from "@/lib/api";
+import { Icon, SPACE_ICONS } from "@/components/Icon";
+import { Kit, Space, useApi } from "@/lib/api";
 import { STILL_READING, statusInfo } from "@/lib/assetStatus";
 
 type Upload = { image_id: string; url: string; headers: Record<string, string> };
@@ -31,10 +32,14 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
   const { token } = use(params);
   const api = useApi(); const qc = useQueryClient();
   const spaces = useQuery({ queryKey: ["spaces"], queryFn: () => api<Space[]>("/spaces") });
+  const kits = useQuery({ queryKey: ["kits"], queryFn: () => api<Kit[]>("/kits") });
+  const me = useQuery({ queryKey: ["me"], queryFn: () => api<{ suggested_spaces: string[] }>("/me") });
+  const [sheet, setSheet] = useState(false);
+  const [sheetName, setSheetName] = useState("");
+  const [sheetIcon, setSheetIcon] = useState<string>("home");
 
   const [name, setName] = useState("");
   const [spaceId, setSpaceId] = useState("");
-  const [newSpace, setNewSpace] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -52,9 +57,24 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
   const pickRef = useRef<HTMLInputElement>(null);  // abre galeria o archivos
 
   useEffect(() => { const s = sessionStorage.getItem(LAST_SPACE); if (s) setSpaceId(s); }, []);
-  const adding = spaceId === "__nueva";
+  // Las ubicaciones sugeridas (Cocina, Sala...) se crean al elegirlas: su id empieza con "sug:".
+  const adding = spaceId.startsWith("sug:");
   // Con foto no hace falta el nombre: lo lee la IA. Sin foto, el nombre es obligatorio.
-  const ready = (file || name.trim()) && (adding ? newSpace.trim() : spaceId);
+  const ready = (file || name.trim()) && spaceId;
+  const used = kits.data?.reduce((n, k) => n + k.tags_used, 0) ?? 0;
+  const total = kits.data?.reduce((n, k) => n + k.tags_total, 0) ?? 0;
+  const existing = new Set((spaces.data ?? []).map((x) => x.name.toLowerCase()));
+  const chips = [...(spaces.data ?? []).map((x) => ({ id: x.id, name: x.name })),
+    ...(me.data?.suggested_spaces ?? []).filter((n) => !existing.has(n.toLowerCase())).map((n) => ({ id: `sug:${n}`, name: n }))];
+
+  async function createSpace() {
+    if (!sheetName.trim()) return;
+    try {
+      const sp = await api<Space>("/spaces", { method: "POST", body: JSON.stringify({ name: sheetName.trim(), icon: sheetIcon }) });
+      await qc.invalidateQueries({ queryKey: ["spaces"] });
+      setSpaceId(sp.id); setSheet(false); setSheetName("");
+    } catch (x) { setErr((x as Error).message); }
+  }
 
   async function subirFoto(id: string, up: Upload, f: File) {
     setStage("subiendo"); setPct(0); setUpErr(null);
@@ -88,10 +108,10 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
     try {
       // Con foto, el tipo de equipo lo toma la IA de la placa; sin foto, lo escribe la persona.
       const body = { tag_token: token, name: file ? undefined : name, plate_content_type: file?.type || undefined,
-                     ...(adding ? { new_space_name: newSpace } : { space_id: spaceId }) };
+                     ...(adding ? { new_space_name: spaceId.slice(4) } : { space_id: spaceId }) };
       const a = await api<Created>("/assets", { method: "POST", body: JSON.stringify(body) });
       await qc.invalidateQueries({ queryKey: ["spaces"] });
-      const sid = adding ? (await api<Space[]>("/spaces")).find((s) => s.name === newSpace.trim())?.id : spaceId;
+      const sid = adding ? (await api<Space[]>("/spaces")).find((x) => x.name === spaceId.slice(4))?.id : spaceId;
       if (sid) sessionStorage.setItem(LAST_SPACE, sid);       // modo rafaga: se conserva la ubicacion
       qc.invalidateQueries({ queryKey: ["kits"] }); qc.invalidateQueries({ queryKey: ["assets"] });
       setAssetId(a.id);
@@ -172,40 +192,64 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
 
   // ---------- Formulario ----------
   return (
-    <Shell title="Nuevo equipo" back="/inicio">
+    <Shell title="Nuevo equipo" back="/inicio" right={total > 0 ? <span className="chip whitespace-nowrap"><Icon name="tag" size={13} stroke={2.4} />{used} de {total}</span> : undefined}>
       <form onSubmit={save} className="flex flex-col gap-4">
-        <Card>
-          <p className="font-extrabold text-ink">1. Foto de la placa</p>
-          <p className="text-sm text-muted">Es la etiqueta con marca, modelo y serie, casi siempre en la parte de atrás o dentro de la puerta.</p>
-          <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          <input ref={pickRef} type="file" accept="image/*" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button type="button" className="btn btn-copper w-full" onClick={() => camRef.current?.click()}>Tomar foto</button>
-            <button type="button" className="btn btn-ghost w-full" onClick={() => pickRef.current?.click()}>Subir foto</button>
+        <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <input ref={pickRef} type="file" accept="image/*" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <div className="g rounded-[26px] p-3.5">
+          <div className="flex items-center gap-3">
+            <span className="icon-tile !h-12 !w-12 !rounded-2xl"><Icon name="camera" size={24} /></span>
+            <span className="min-w-0 flex-1"><span className="block text-[15px] font-extrabold">Foto de la placa</span><span className="block text-[12.5px] leading-tight text-muted">{file ? "Foto lista. El tipo de equipo lo leeremos de la placa." : "Es la etiqueta con marca, modelo y serie, casi siempre atrás o dentro de la puerta."}</span></span>
           </div>
-          {file && <p className="mt-2 text-sm font-semibold text-[var(--ng-ok)]">Foto lista. El tipo de equipo lo leeremos de la placa.</p>}
-        </Card>
-        <Card className="flex flex-col gap-3">
-          {!file && (
-            <>
-              <label htmlFor="n" className="font-extrabold text-ink">2. ¿Qué equipo es?</label>
-              <input id="n" className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Lavadora" maxLength={200} required />
-            </>
-          )}
-          <label htmlFor="s" className="font-extrabold text-ink">{file ? "2" : "3"}. ¿Dónde está?</label>
-          <select id="s" className="field" value={spaceId} onChange={(e) => setSpaceId(e.target.value)} required>
-            <option value="" disabled>Elige un lugar</option>
-            {spaces.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            <option value="__nueva">+ Nueva ubicación</option>
-          </select>
-          {adding && <input className="field" placeholder="Ej. Taller" value={newSpace} onChange={(e) => setNewSpace(e.target.value)} maxLength={120} />}
-        </Card>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" className="btn btn-copper !min-h-11 w-full !text-[15px]" onClick={() => camRef.current?.click()}>{file ? "Cambiar foto" : "Tomar foto"}</button>
+            <button type="button" className="btn btn-ghost !min-h-11 w-full !text-[15px]" onClick={() => pickRef.current?.click()}>Subir foto</button>
+          </div>
+        </div>
+        {!file && (
+          <div>
+            <label htmlFor="n" className="mb-1.5 block text-[13px] font-bold text-muted">Nombre</label>
+            <input id="n" className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Lavadora" maxLength={200} required />
+          </div>
+        )}
+        <div>
+          <p className="mb-2 text-[13px] font-bold text-muted">¿Dónde está?</p>
+          <div className="flex flex-wrap gap-2">
+            {chips.map((c) => (
+              <button type="button" key={c.id} aria-pressed={spaceId === c.id} onClick={() => setSpaceId(c.id)}
+                className={`inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-[15px] font-bold ${spaceId === c.id ? "gd" : "g text-navy"}`} style={{ borderRadius: 999 }}>
+                {spaceId === c.id && <Icon name="check" size={16} stroke={2.6} />}{c.name}
+              </button>
+            ))}
+            <button type="button" onClick={() => setSheet(true)} className="inline-flex h-11 items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-navy/40 bg-white/40 px-4 text-[15px] font-bold text-navy"><Icon name="plus" size={16} stroke={2.4} />Nueva</button>
+          </div>
+        </div>
         <p className="text-center text-xs text-muted">
           {file ? "Al guardar, subimos la foto y leemos la placa. Verás el avance aquí." : "Sin foto, el equipo se guarda y puedes escribir sus datos a mano."}
         </p>
         <button className="btn w-full" disabled={busy || !ready}>{busy ? "Guardando…" : file ? "Guardar y leer la placa" : "Guardar equipo"}</button>
         <ErrorNote text={err} />
       </form>
+      {sheet && (
+        <div className="fixed inset-0 z-20 flex items-end bg-[rgba(2,38,77,.35)]" role="dialog" aria-modal="true" aria-label="Nueva ubicación" onClick={() => setSheet(false)}>
+          <div className="gs mx-auto w-full max-w-md rounded-b-none rounded-t-[34px] px-5 pb-8 pt-3" onClick={(e) => e.stopPropagation()}>
+            <span className="mx-auto mb-3 block h-1 w-10 rounded-full bg-navy/20" />
+            <h2 className="text-[22px] font-extrabold">Nueva ubicación</h2>
+            <p className="text-[13px] text-muted">La podrás usar para todos tus equipos.</p>
+            <label htmlFor="sn" className="mb-1.5 mt-4 block text-[13px] font-bold text-muted">Nombre</label>
+            <input id="sn" className="field" value={sheetName} onChange={(e) => setSheetName(e.target.value)} placeholder="Patio" maxLength={120} autoFocus />
+            <p className="mb-2 mt-4 text-[13px] font-bold text-muted">Ícono</p>
+            <div className="flex justify-between">
+              {SPACE_ICONS.map((i) => (
+                <button type="button" key={i} aria-label={i} aria-pressed={sheetIcon === i} onClick={() => setSheetIcon(i)}
+                  className={`grid h-12 w-12 place-items-center rounded-2xl ${sheetIcon === i ? "gd" : "g text-navy"}`}><Icon name={i} size={22} /></button>
+              ))}
+            </div>
+            <button type="button" className="btn mt-5 w-full" disabled={!sheetName.trim()} onClick={createSpace}>Crear y usar</button>
+            <button type="button" className="mt-3 block w-full text-center text-[15px] font-bold text-navy" onClick={() => setSheet(false)}>Cancelar</button>
+          </div>
+        </div>
+      )}
     </Shell>
   );
 }

@@ -16,6 +16,7 @@ Fuente de verdad visual: los archivos de `docs/mockups/` (exportados del lienzo 
 - Accesibilidad: foco visible de 3 px, alternativa sin desenfoque y modo de alto contraste ya incluidos.
 
 ## Estado
-- Hecho: tokens, clases de vidrio, botones, campos, barra inferior, encabezado con logotipo, pantallas de Inicio, Por confirmar, Escanear, Alta rápida, Expediente, Activar kit y Etiqueta.
-- Entrada (bienvenida, crear cuenta, código por correo, iniciar sesión): tema de Clerk en `apps/web/lib/clerkAppearance.ts`; vista de referencia en `docs/mockups/Entrada_bienvenida_login_codigo.png` (aproximada: el formulario real lo dibuja Clerk).
-- Pendiente: pantallas del mockup que aún no existen en la app (Equipos, Cuidado, Servicios, Inicio sin equipos, Alta manual, pestañas del expediente, pantallas de carga); modo oscuro; logotipo vectorial oficial (hoy es una reconstrucción en `components/Logo.tsx`); decidir si la variante oscura del logotipo (cian y naranja) es oficial.
+- Alineado al mockup: Inicio (y Inicio sin equipos), Equipos, Escanear, Nuevo equipo con hoja "Nueva ubicación", Por confirmar, Expediente (Resumen e Historial), entrada (bienvenida, crear cuenta, código por correo, iniciar sesión) con tema de Clerk en `apps/web/lib/clerkAppearance.ts`.
+- Barra inferior de cinco pestañas: Inicio, Equipos, Escanear, Cuidado, Servicios.
+- "Muy pronto" (sin servidor todavía, etapas posteriores): Cuidado, Servicios, y las pestañas Documentos y Cuidado del expediente. Se muestran con el mismo estilo, sin datos inventados.
+- Pendiente: Alta manual sin etiqueta (requiere cambio en la API), modos "Placa del equipo" y "Manual" del escáner, nombre "Sugerido" por IA, campana de notificaciones, pantallas de carga, modo oscuro, logotipo vectorial oficial (hoy es una reconstrucción en `components/Logo.tsx`) y decidir si la variante oscura (cian y naranja) es oficial.

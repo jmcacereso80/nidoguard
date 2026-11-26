@@ -6,8 +6,10 @@ import { useAuth, UserButton } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import { Shell } from "@/components/Shell";
 import { CreateHome } from "@/components/CreateHome";
+import { Icon } from "@/components/Icon";
+import { Logo } from "@/components/Logo";
 import { useMe } from "@/components/useHome";
-import { Asset, Kit, useApi } from "@/lib/api";
+import { Asset, Kit, Space, useApi } from "@/lib/api";
 
 export default function Inicio() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -16,39 +18,75 @@ export default function Inicio() {
   const me = useMe();
   const home = me.data?.home;
   const kits = useQuery({ queryKey: ["kits"], queryFn: () => api<Kit[]>("/kits"), enabled: !!home });
-  const pending = useQuery({ queryKey: ["pending"], queryFn: () => api<Asset[]>("/assets?status=por_confirmar"), enabled: !!home });
+  const assets = useQuery({ queryKey: ["assets"], queryFn: () => api<Asset[]>("/assets"), enabled: !!home });
+  const spaces = useQuery({ queryKey: ["spaces"], queryFn: () => api<Space[]>("/spaces"), enabled: !!home });
   useEffect(() => { if (isLoaded && !isSignedIn) router.replace("/sign-in"); }, [isLoaded, isSignedIn, router]);
 
   if (!isLoaded || me.isLoading) return <Shell><p>Cargando…</p></Shell>;
   if (!home) return <Shell title="Bienvenido"><CreateHome /></Shell>;
 
+  const list = assets.data ?? [];
   const used = kits.data?.reduce((n, k) => n + k.tags_used, 0) ?? 0;
   const total = kits.data?.reduce((n, k) => n + k.tags_total, 0) ?? 0;
   const free = total - used;  // etiquetas todavia sin equipo
+  const hasKit = total > 0;
   // Separa lo que todavia se esta leyendo de lo que ya necesita tu revision.
-  const reading = pending.data?.filter((a) => a.status === "registrado" || a.status === "leido").length ?? 0;
-  const attention = pending.data?.filter((a) => ["por_confirmar", "necesita_foto", "faltan_datos"].includes(a.status)).length ?? 0;
+  const reading = list.filter((a) => a.status === "registrado" || a.status === "leido").length;
+  const attention = list.filter((a) => ["por_confirmar", "necesita_foto", "faltan_datos"].includes(a.status)).length;
+  const top = (
+    <div className="flex h-11 items-center justify-between">
+      <div className="flex items-center gap-2"><Logo size={30} /><span className="text-lg font-extrabold tracking-tight text-navy">NidoGuard</span></div>
+      <div className="g grid h-11 w-11 place-items-center rounded-full"><UserButton /></div>
+    </div>
+  );
+  const pill = (
+    <div className="gs mt-4 flex h-[54px] items-center gap-2.5 rounded-[27px] px-5 text-xl font-extrabold text-navy">
+      <Icon name="home" />{home.name}
+    </div>
+  );
+
+  if (assets.isSuccess && list.length === 0) {
+    return (
+      <main className="mx-auto w-full max-w-md px-4 pb-32 pt-6">
+        {top}{pill}
+        <div className="g mt-4 flex flex-col items-center rounded-[34px] px-6 py-8 text-center">
+          <span className="grid h-28 w-28 place-items-center rounded-full bg-white/70"><Logo size={64} /></span>
+          <h2 className="mt-4 text-[26px] font-extrabold leading-tight tracking-tight">Tu hogar comienza aquí.</h2>
+          <p className="mt-2 text-sm text-muted">Registra tu primer equipo y empieza a cuidar lo que tanto te ha costado construir.</p>
+          {hasKit && free > 0
+            ? <Link href="/escanear" className="btn mt-5 w-full"><Icon name="scan" size={20} />Registrar mi primer equipo</Link>
+            : <Link href="/k/activar" className="btn mt-5 w-full"><Icon name="tag" size={20} />Activar mi kit</Link>}
+        </div>
+        <ol className="g mt-3 flex flex-col gap-3 rounded-[26px] p-4">
+          {["Pega la etiqueta en tu equipo", "Escanéala y toma una foto de la placa", "Revisa y confirma los datos"].map((t, i) => (
+            <li key={t} className="flex items-center gap-3"><span className="grid h-7 w-7 flex-none place-items-center rounded-full bg-navy text-sm font-extrabold text-white">{i + 1}</span><span className="text-[15px] font-bold">{t}</span></li>
+          ))}
+        </ol>
+        <BottomNavSlot />
+      </main>
+    );
+  }
+
+  const counts = new Map<string, number>();
+  list.forEach((a) => a.space_id && counts.set(a.space_id, (counts.get(a.space_id) ?? 0) + 1));
   return (
-    <Shell title="NidoGuard" nav="inicio">
-      <div className="absolute right-4 top-6"><UserButton /></div>
-      <div className="gs flex h-[54px] items-center gap-2.5 rounded-[27px] px-5 text-xl font-extrabold text-navy">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" /></svg>
-        {home.name}
-      </div>
+    <main className="mx-auto w-full max-w-md px-4 pb-32 pt-6">
+      {top}{pill}
       <div className="mt-5">
         <h2 className="text-[32px] font-extrabold leading-[1.1] tracking-[-0.8px]">Cuida lo tuyo.</h2>
         <p className="mt-1.5 text-sm text-muted">Tus equipos, tu inversión, tu tranquilidad.</p>
       </div>
       <div className="mt-[18px] flex gap-3">
         <div className="gd flex min-h-[144px] flex-[1.35] flex-col justify-between rounded-[30px] px-5 py-[18px]">
-          <p className="text-sm font-semibold opacity-90">Mis etiquetas</p>
-          <p className="flex items-baseline gap-2"><span className="text-5xl font-extrabold leading-none tracking-[-1.5px]">{total ? used : 0}</span><span className="text-sm font-semibold opacity-90">{total ? `de ${total} usadas` : "sin kit todavía"}</span></p>
+          <p className="text-sm font-semibold opacity-90">Mis equipos</p>
+          <p className="flex items-baseline gap-2"><span className="text-5xl font-extrabold leading-none tracking-[-1.5px]">{list.length}</span><span className="text-sm font-semibold opacity-90">registrados</span></p>
+          <span className="inline-flex items-center gap-1.5 self-start rounded-xl bg-white/20 px-2.5 py-1 text-xs font-bold"><Icon name="clock" size={13} stroke={2.4} />Valor estimado: muy pronto</span>
         </div>
-        <div className="g flex flex-1 flex-col justify-between rounded-[30px] p-[18px]">
+        <Link href="/por-confirmar" className="g flex flex-1 flex-col justify-between rounded-[30px] p-[18px]">
           <p className="text-sm font-semibold text-muted">Por revisar</p>
           <p className="text-5xl font-extrabold leading-none tracking-[-1.5px] text-navy">{attention}</p>
           <p className="text-sm font-semibold text-muted">{reading ? `${reading} leyendo` : "equipos"}</p>
-        </div>
+        </Link>
       </div>
       {reading > 0 && (
         <p className="g mt-3 rounded-[22px] px-4 py-3 text-sm text-navy">
@@ -56,26 +94,43 @@ export default function Inicio() {
         </p>
       )}
       <div className="mt-3 flex flex-col gap-3">
-        {total === 0 && (
-          <Link href="/k/activar" className="btn btn-copper w-full">Activar tu kit</Link>
-        )}
-        {free > 0 && (
-          <Link href="/escanear" className="btn btn-copper w-full">Agregar un equipo</Link>
-        )}
-        {total > 0 && <p className="text-center text-xs text-muted">Escanea la etiqueta que va pegada al equipo, no la hoja del kit.</p>}
-        {total > 0 && <Link href="/k/activar" className="btn btn-ghost w-full">Activar otro kit</Link>}
-        <Link href="/equipos" className="btn btn-ghost w-full">Ver mis equipos</Link>
+        {free > 0 && <Link href="/escanear" className="btn btn-copper w-full"><Icon name="scan" size={20} />Agregar un equipo</Link>}
+        {free > 0 && <p className="text-center text-xs text-muted">Escanea la etiqueta que va pegada al equipo, no la hoja del kit.</p>}
+        <Link href="/k/activar" className="btn btn-ghost w-full">{hasKit ? "Activar otro kit" : "Activar tu kit"}</Link>
       </div>
+      <Link href="/servicios" className="g mt-3 flex items-center gap-3.5 rounded-[28px] py-3.5 pl-4 pr-3.5">
+        <span className="grid h-12 w-12 flex-none place-items-center rounded-full text-ink" style={{ background: "linear-gradient(145deg,#E9C7A3,#C18B58)" }}><Icon name="sparkle" size={24} /></span>
+        <span className="flex-1"><span className="block text-base font-extrabold">¿En qué te puedo ayudar?</span><span className="block text-[13px] text-muted">Estoy aquí para cuidar tus equipos.</span></span>
+        <span className="grid h-9 w-9 place-items-center rounded-full bg-[rgba(24,59,86,.08)] text-navy"><Icon name="chevron" size={18} stroke={2.4} /></span>
+      </Link>
       {attention > 0 && (
         <>
-          <h2 className="mt-6 text-[19px] font-extrabold">Necesitan tu atención</h2>
+          <div className="mt-6 flex items-baseline justify-between"><h2 className="text-[19px] font-extrabold">Necesitan tu atención</h2></div>
           <Link href="/por-confirmar" className="g mt-2.5 flex h-[62px] items-center gap-3 rounded-[22px] px-3.5">
-            <span className="icon-tile"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg></span>
-            <span className="min-w-0 flex-1"><span className="block text-[15px] font-bold leading-tight">{attention} equipo(s) por revisar</span><span className="block text-[12.5px] text-muted">Ya leímos sus datos</span></span>
-            <span className="chip">Revisar</span>
+            <span className="icon-tile"><Icon name="check" size={19} /></span>
+            <span className="min-w-0 flex-1"><span className="block text-[15px] font-bold leading-tight">{attention} {attention === 1 ? "equipo por revisar" : "equipos por revisar"}</span><span className="block text-[12.5px] text-muted">Revisa lo que leímos de la placa</span></span>
+            <span className="chip"><Icon name="check" size={13} stroke={2.4} />Revisar</span>
           </Link>
         </>
       )}
-    </Shell>
+      {!!spaces.data?.length && (
+        <>
+          <h2 className="mt-6 text-[19px] font-extrabold">Mis espacios</h2>
+          <div className="-mx-4 mt-2.5 flex gap-2.5 overflow-x-auto px-4 pb-2">
+            {spaces.data.map((s, i) => (
+              <Link key={s.id} href={`/equipos?espacio=${s.id}`} className="g flex h-[104px] w-[132px] flex-none flex-col justify-between rounded-[26px] p-3.5 text-navy"
+                    style={{ background: i % 2 ? "linear-gradient(145deg,rgba(241,226,211,.85),rgba(227,195,163,.7))" : "linear-gradient(145deg,rgba(228,237,244,.8),rgba(185,207,224,.7))" }}>
+                <Icon name={s.icon ?? "home"} size={26} stroke={1.8} />
+                <span><span className="block text-[15px] font-extrabold text-ink">{s.name}</span><span className="block text-[12.5px] text-muted">{counts.get(s.id) ?? 0} equipos</span></span>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+      <BottomNavSlot />
+    </main>
   );
 }
+
+import { BottomNav } from "@/components/BottomNav";
+function BottomNavSlot() { return <BottomNav active="inicio" />; }
