@@ -233,8 +233,9 @@ class ModelKnowledge(Base):
     model: Mapped[str] = mapped_column(String(120))
     status: Mapped[str] = mapped_column(String(20))  # buscando | listo | no_encontrado
     title: Mapped[str | None] = mapped_column(String(300))
-    source_url: Mapped[str | None] = mapped_column(String(800))  # enlace al sitio original
-    storage_key: Mapped[str | None] = mapped_column(String(500))  # copia propia en nidoguard-knowledge
+    source_url: Mapped[str | None] = mapped_column(String(800))  # primer enlace sugerido
+    links: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # hasta 3 paginas: [{url, title}]
+    storage_key: Mapped[str | None] = mapped_column(String(500))  # no se usa: no guardamos copias de manuales
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     next_try_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = now()

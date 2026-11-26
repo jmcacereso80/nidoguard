@@ -13,7 +13,7 @@ from ..db import get_db
 from ..models import AssetDocument, AssetEvent, Organization, User, Warranty
 from ..security import current_org, current_user
 from ..services import manuales
-from ..services.storage import Storage, get_knowledge_storage, get_storage
+from ..services.storage import Storage, get_storage
 from .assets import _event, _own
 
 router = APIRouter(prefix="/assets", tags=["documentos"])
@@ -72,7 +72,7 @@ def _own_doc(db: Session, org: Organization, asset_id: uuid.UUID, document_id: u
 
 @router.get("/{asset_id}/documents")
 def list_documents(asset_id: uuid.UUID, tasks: BackgroundTasks, org: Organization = Depends(current_org),
-                   db: Session = Depends(get_db), kstorage: Storage = Depends(get_knowledge_storage)):
+                   db: Session = Depends(get_db)):
     a = _own(db, org, asset_id)
     manuales.pedir_manual(db, a, tasks)  # solo hace algo si el modelo esta confirmado y aun no hay manual
     w = db.scalar(select(Warranty).where(Warranty.asset_id == a.id))
@@ -84,7 +84,7 @@ def list_documents(asset_id: uuid.UUID, tasks: BackgroundTasks, org: Organizatio
         .order_by(AssetDocument.created_at.desc())))
     pendiente = next((g for g in garantias if w is None or g.id != w.document_id), None)
     return {
-        "manuals": manuales.manual_view(db, a, kstorage),
+        "manuals": manuales.manual_view(db, a),
         "model_confirmed": bool(a.brand and a.model and a.status.value == "completo"),
         "warranty": None if not w else {
             "ends_on": w.ends_on.isoformat(), "provider": w.provider, "price": w.price,
