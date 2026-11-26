@@ -52,9 +52,7 @@ export default function Inicio() {
           <Link href="/k/activar" className="btn btn-copper w-full">Activar tu kit</Link>
         )}
         {free > 0 && (
-          <Link href="/escanear" className="btn btn-copper w-full">
-            Agregar un equipo <span className="ml-1 opacity-80">· te quedan {free} {free === 1 ? "etiqueta" : "etiquetas"}</span>
-          </Link>
+          <Link href="/escanear" className="btn btn-copper w-full">Agregar un equipo</Link>
         )}
         {total > 0 && <p className="text-center text-xs text-muted">Escanea la etiqueta que va pegada al equipo, no la hoja del kit.</p>}
         {total > 0 && <Link href="/k/activar" className="btn btn-ghost w-full">Activar otro kit</Link>}
