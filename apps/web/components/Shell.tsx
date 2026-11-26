@@ -18,7 +18,7 @@ export function Shell({ title, subtitle, back, nav, big, right, children }: {
       </header>
       {subtitle && <p className="mb-4 mt-1 text-sm text-muted">{subtitle}</p>}
       {children}
-      <p className="mt-8 text-center text-[10px] tracking-wide text-muted/60">NidoGuard · {process.env.NEXT_PUBLIC_APP_VERSION ?? "sin versión"}</p>
+      <p className="pointer-events-none fixed inset-x-0 bottom-0.5 text-center text-[9px] tracking-wide text-muted/70">NidoGuard · {process.env.NEXT_PUBLIC_APP_VERSION ?? "sin versión"}</p>
       {nav && <BottomNav active={nav} />}
     </main>
   );
