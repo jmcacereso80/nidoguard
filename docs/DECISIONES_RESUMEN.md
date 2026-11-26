@@ -13,7 +13,7 @@ Versión completa en el Project NIDOGUARD de claude.ai (`docs/DECISIONS.md`). Do
 
 ## Propuestas en uso
 - **D-008** R2: bucket privado `nidoguard-private` (fotos/placas/facturas), `nidoguard-knowledge` para manuales; subida directa con URL firmada; nombres sin datos personales; borrar subidas no confirmadas en 24 h; quitar EXIF.
-- **D-009** Claude lee la placa desde el backend con salida estructurada; `null` para lo ilegible, nunca adivinar, guardar transcripción literal. Interfaz `PlateReader`. Haiku 5.5 esfuerzo medio, respaldo Sonnet 5.5; decidir con 50 a 100 placas reales de México.
+- **D-009** Claude lee la placa desde el backend con salida estructurada y solo extrae marca, modelo y número de serie, iguales para todos los equipos (el tipo solo nombra el equipo; voltaje, capacidad y demás quedan en la transcripción para Documentos y Cuidado); `null` para lo ilegible, nunca adivinar, guardar transcripción literal. Interfaz `PlateReader`. Haiku 5.5 esfuerzo medio, respaldo Sonnet 5.5; decidir con 50 a 100 placas reales de México.
 - Tabla `AssetEvent` de solo agregar. RLS como segunda barrera (pendiente).
 
 ## Abiertas que afectan el código

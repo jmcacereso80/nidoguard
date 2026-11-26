@@ -18,12 +18,8 @@ const EVENT: Record<string, string> = {
   registro: "Registrado", lectura_ia: "Placa leída", confirmado: "Datos confirmados",
   datos_manuales: "Datos escritos a mano", edicion: "Datos corregidos",
 };
-// Nombres en español de los datos que lee la IA de la placa.
-const READ_LABEL: Record<string, string> = {
-  brand: "Marca", model: "Modelo", serial: "Número de serie", product_number: "Número de producto",
-  category: "Tipo", voltage: "Voltaje", frequency: "Frecuencia", capacity: "Capacidad", power: "Potencia",
-  refrigerant: "Refrigerante", country: "Origen", certifications: "Certificaciones", manufacture_date: "Fecha de fabricación",
-};
+// Datos que se leen de la placa: solo estos tres, iguales para todos los equipos.
+const READ_LABEL: Record<string, string> = { brand: "Marca", model: "Modelo", serial: "Número de serie" };
 const TABS = ["Resumen", "Documentos", "Cuidado", "Historial"] as const;
 const FIELDS = ["name", "category", "brand", "model", "serial"] as const;
 type Field = (typeof FIELDS)[number];
@@ -133,11 +129,9 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
               <p className="font-extrabold text-ink">Datos leídos de la placa</p>
               <p className="text-sm text-muted">Los leyó la IA. Revísalos: si algo está mal, corrígelo abajo antes de confirmar.</p>
               <dl className="grid grid-cols-2 gap-y-2 text-sm">
-                {Object.entries(a.reading.fields)
-                  .filter(([k, v]) => v && k !== "suggested_name" && READ_LABEL[k])
-                  .map(([k, v]) => (
-                    <div key={k} className="contents"><dt className="text-muted">{READ_LABEL[k]}</dt><dd className="font-semibold">{String(v)}</dd></div>
-                  ))}
+                {Object.entries(READ_LABEL).map(([k, label]) => (
+                  <div key={k} className="contents"><dt className="text-muted">{label}</dt><dd className="font-semibold">{a.reading?.fields[k] ? String(a.reading.fields[k]) : "No se leyó"}</dd></div>
+                ))}
               </dl>
               <button className="btn w-full" disabled={busy} onClick={confirmData}><Icon name="check" size={18} stroke={2.6} />Confirmar estos datos</button>
             </Card>

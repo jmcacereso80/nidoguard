@@ -21,20 +21,13 @@ class PlateExtraction(BaseModel):
     brand: Field_ = Field(default_factory=Field_)
     model: Field_ = Field(default_factory=Field_)
     serial: Field_ = Field(default_factory=Field_)
-    product_number: Field_ = Field(default_factory=Field_)
-    manufacture_date: Field_ = Field(default_factory=Field_)
-    voltage: Field_ = Field(default_factory=Field_)
-    frequency: Field_ = Field(default_factory=Field_)
-    power: Field_ = Field(default_factory=Field_)
-    capacity: Field_ = Field(default_factory=Field_)
-    refrigerant: Field_ = Field(default_factory=Field_)
-    country: Field_ = Field(default_factory=Field_)
-    certifications: Field_ = Field(default_factory=Field_)
     transcript: str = Field(default="", description="Todo el texto visible de la placa, literal")
 
 
-FIELD_NAMES = ["category", "brand", "model", "serial", "product_number", "manufacture_date", "voltage",
-               "frequency", "power", "capacity", "refrigerant", "country", "certifications"]
+# Se estandariza a tres datos para todos los equipos (televisores, hornos, etc. no traen mas).
+# El tipo ("category") solo sirve para ponerle nombre al equipo. Lo demas (voltaje, capacidad...)
+# queda en la transcripcion literal y se aprovechara despues en documentos y cuidado.
+FIELD_NAMES = ["category", "brand", "model", "serial"]
 
 PROMPT = (
     "Eres un lector de placas de equipos del hogar (lavadoras, refrigeradores, aires, televisores, etc.). "
@@ -42,6 +35,7 @@ PROMPT = (
     "se ve o no estas seguro, usa null y confianza baja; NUNCA inventes ni completes con lo que sabes de la "
     "marca. Marca legible=false si la foto esta borrosa, cortada o no muestra una placa. "
     "En 'category' usa una palabra en espanol (lavadora, refrigerador, aire acondicionado, television...). "
+    "Extrae SOLO marca, modelo y numero de serie; ignora voltaje, potencia, capacidad y demas datos. "
     "'suggested_name' es un nombre corto en espanol para el equipo. 'transcript' es todo el texto visible."
 )
 
