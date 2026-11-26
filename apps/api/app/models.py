@@ -354,3 +354,122 @@ class ProviderSearch(Base):
     new_providers: Mapped[int] = mapped_column(Integer, default=0)
     detail: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = now()
+
+
+class ServiceRequest(Base):
+    """Solicitud de servicio: viene de una tarea de Cuidado o la abre la persona por su cuenta ('libre').
+    status: borrador | buscando | lista | sin_respuesta | agendada | terminada | cancelada
+    route: tecnico (va a la casa) | fabricante (centro de servicio)"""
+    __tablename__ = "service_requests"
+    id: Mapped[uuid.UUID] = pk()
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    property_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("properties.id"))
+    asset_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("equipment_assets.id", ondelete="SET NULL"), index=True)
+    care_task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("care_tasks.id", ondelete="SET NULL"), index=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    origin: Mapped[str] = mapped_column(String(10))  # tarea | libre
+    route: Mapped[str] = mapped_column(String(12), default="tecnico")
+    equipment_label: Mapped[str | None] = mapped_column(String(200))
+    symptom: Mapped[str | None] = mapped_column(Text)
+    scope_text: Mapped[str | None] = mapped_column(Text)
+    specialty: Mapped[str | None] = mapped_column(String(40))
+    urgency: Mapped[str] = mapped_column(String(12), default="semana")  # hoy | semana | sin_prisa
+    safety_alert: Mapped[str | None] = mapped_column(String(20))  # gas | chispas | humo | quemado | agua_electricidad
+    safety_acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    status: Mapped[str] = mapped_column(String(14), default="borrador", index=True)
+    zone_city: Mapped[str | None] = mapped_column(String(120))
+    zone_colony: Mapped[str | None] = mapped_column(String(120))
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+    radius_km: Mapped[int] = mapped_column(Integer, default=15, server_default=text("15"))
+    target_quotes: Mapped[int] = mapped_column(Integer, default=5, server_default=text("5"))
+    chosen_quote_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = now()
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ServiceCall(Base):
+    """Una llamada hecha por NidoGuard (a un tecnico o al fabricante). Solo uso interno: transcripcion y grabacion
+    contienen datos de terceros y nunca se entregan a las personas usuarias."""
+    __tablename__ = "service_calls"
+    id: Mapped[uuid.UUID] = pk()
+    request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("service_requests.id", ondelete="CASCADE"), index=True)
+    provider_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("service_providers.id"))
+    purpose: Mapped[str] = mapped_column(String(12))  # cotizar | agendar | recordatorio | fabricante
+    label: Mapped[str | None] = mapped_column(String(20))  # "Técnico 3"
+    distance_km: Mapped[float | None] = mapped_column(Float)
+    attempt: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(14), default="en_cola")  # en_cola | llamando | completada | sin_respuesta | rechazo | error
+    scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # solo la voz falsa lo usa
+    retell_call_id: Mapped[str | None] = mapped_column(String(80), unique=True)
+    duration_s: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[float | None] = mapped_column(Float)
+    transcript: Mapped[str | None] = mapped_column(Text)
+    recording_key: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = now()
+
+
+class ServiceQuote(Base):
+    """Lo que dijo un tecnico por telefono, ya estructurado. Es lo unico que ve la persona: sin nombre ni contacto."""
+    __tablename__ = "service_quotes"
+    id: Mapped[uuid.UUID] = pk()
+    request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("service_requests.id", ondelete="CASCADE"), index=True)
+    provider_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("service_providers.id"))
+    call_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("service_calls.id"))
+    label: Mapped[str] = mapped_column(String(20))  # "Técnico 1"
+    rating: Mapped[float | None] = mapped_column(Float)
+    reviews: Mapped[int | None] = mapped_column(Integer)
+    distance_km: Mapped[float | None] = mapped_column(Float)
+    scope_quoted: Mapped[str | None] = mapped_column(Text)
+    includes: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    excludes: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    price_min: Mapped[float | None] = mapped_column(Float)
+    price_max: Mapped[float | None] = mapped_column(Float)
+    price_type: Mapped[str | None] = mapped_column(String(30))  # fijo | rango | solo_revision | revision_mas_reparacion
+    visit_fee: Mapped[float | None] = mapped_column(Float)
+    availability: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))  # [{date, window}]
+    warranty_days: Mapped[int | None] = mapped_column(Integer)
+    invoice: Mapped[bool | None] = mapped_column(Boolean)
+    payment_methods: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    matches: Mapped[str | None] = mapped_column(String(10))  # igual | parcial | distinto
+    summary: Mapped[str | None] = mapped_column(Text)
+    confidence: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = now()
+    __table_args__ = (Index("uq_quote_request_provider", "request_id", "provider_id", unique=True),)
+
+
+class ServiceAppointment(Base):
+    """Cita acordada: con un tecnico (a domicilio) o con el fabricante (casi siempre en un centro de servicio).
+    status: por_confirmar | confirmada | por_reprogramar | cancelada | realizada"""
+    __tablename__ = "service_appointments"
+    id: Mapped[uuid.UUID] = pk()
+    request_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("service_requests.id", ondelete="CASCADE"), index=True)
+    quote_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("service_quotes.id"))
+    provider_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("service_providers.id"))
+    provider_kind: Mapped[str] = mapped_column(String(10))  # tecnico | fabricante
+    location_type: Mapped[str] = mapped_column(String(10), default="domicilio")  # domicilio | centro
+    center_name: Mapped[str | None] = mapped_column(String(200))
+    center_address: Mapped[str | None] = mapped_column(String(300))
+    folio: Mapped[str | None] = mapped_column(String(60))
+    bring: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    requested_slot: Mapped[dict | None] = mapped_column(JSONB)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(16), default="por_confirmar")
+    registered_by_user: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    address_shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    final_cost: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = now()
+
+
+class Consent(Base):
+    """Permisos dados por la persona, con la version del texto que acepto."""
+    __tablename__ = "consents"
+    id: Mapped[uuid.UUID] = pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    organization_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
+    request_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("service_requests.id", ondelete="SET NULL"))
+    type: Mapped[str] = mapped_column(String(40))  # llamar_en_su_nombre | compartir_datos_para_visita | compartir_datos_con_fabricante
+    text_version: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = now()

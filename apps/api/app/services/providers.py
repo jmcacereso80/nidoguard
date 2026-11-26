@@ -28,6 +28,19 @@ SPECIALTIES: dict[str, str] = {
 }
 
 
+def specialty_for(category: str | None) -> str:
+    """Especialidad del directorio segun el tipo de equipo."""
+    c = norm_key(category or "")
+    for words, spec in (
+        (("aire", "minisplit", "clima"), "aire_acondicionado"), (("refrigerador", "nevera", "frigobar"), "refrigeracion"),
+        (("lavadora", "secadora", "lavasecadora"), "lavadoras"), (("estufa", "horno", "parrilla", "campana"), "estufas_hornos"),
+        (("boiler", "calentador"), "boiler"),
+    ):
+        if any(w in c for w in words):
+            return spec
+    return "electrodomesticos"
+
+
 @dataclass
 class ProviderRecord:
     source_id: str

@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     apify_maps_actor: str = "compass~crawler-google-places"  # el CLI confirma el actor y su costo antes del piloto
     provider_source: str = "apify"  # apify | fake
     provider_ttl_days: int = 90
+    voice: str = "fake"  # fake | retell. Con 'fake' nunca se llama a nadie
+    calls_enabled: bool = False  # interruptor general de llamadas reales
+    calls_allowlist: str = ""  # telefonos E.164 permitidos mientras dure el piloto, separados por coma
+    fake_voice_step_seconds: int = 4  # cada cuanto "termina" una llamada falsa
     geocoder: str = "nominatim"  # nominatim | fake
     geocoder_user_agent: str = "NidoGuard/1.0 (contacto@nidoguard.com)"
 
