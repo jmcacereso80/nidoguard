@@ -1,0 +1,12 @@
+{
+  "name": "nidoguard",
+  "private": true,
+  "packageManager": "pnpm@12.23.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test"
+  },
+  "devDependencies": { "turbo": "^2" }
+}
