@@ -2,7 +2,8 @@
 import { useAuth } from "@clerk/nextjs";
 import { useCallback } from "react";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Por defecto la API va por el mismo host, bajo /api (ver rewrites en next.config.ts).
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }

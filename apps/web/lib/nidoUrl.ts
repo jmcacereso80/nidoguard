@@ -1,4 +1,4 @@
-const APP_HOSTS = ["nidoguard.com", "app.nidoguard.com", "localhost"];
+const APP_HOSTS = ["nidoguard.com", "app.nidoguard.com", "dev.nidoguard.com", "localhost"];
 
 /** Solo acepta URLs de NidoGuard con la forma /t/<token> o /k/<codigo>. Devuelve la ruta interna. */
 export function parseNidoUrl(text: string): string | null {

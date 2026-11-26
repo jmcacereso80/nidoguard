@@ -15,7 +15,8 @@ export const viewport: Viewport = { themeColor: "#183b56", width: "device-width"
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider localization={esMX} appearance={clerkAppearance}>
-      <html lang="es-MX">
+      {/* suppressHydrationWarning: extensiones del navegador (p. ej. Chrome) agregan atributos a <html> antes de hidratar. */}
+      <html lang="es-MX" suppressHydrationWarning>
         <body>
           <Providers>{children}</Providers>
         </body>
