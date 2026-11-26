@@ -5,10 +5,10 @@ from tests.test_fase3_4 import setup, uid
 
 
 class FakeStorage:
-    def __init__(self): self.deleted = []
+    def __init__(self): self.deleted = []; self.objects = {}
     def presign_put(self, key, content_type, expires=600): return f"https://fake/{key}"
     def presign_get(self, key, expires=600): return f"https://fake/{key}"
-    def head(self, key): return None
+    def head(self, key): return self.objects.get(key)
     def get_bytes(self, key): return b"x"
     def delete(self, key): self.deleted.append(key)
 
@@ -110,3 +110,20 @@ def test_without_ai_name_user_must_type_it_before_confirming(make_client, db):
     assert c.patch(f"/assets/{a['id']}", json={"name": "Estufa"}).status_code == 200
     r = c.post(f"/assets/{a['id']}/confirm", json={})
     assert r.status_code == 200 and r.json()["name"] == "Estufa" and r.json()["status"] == "completo"
+
+
+def test_retake_photo_for_existing_asset_restarts_reading(make_client, db):
+    from app.models import AssetImage
+    fs = FakeStorage(); app.dependency_overrides[get_storage] = lambda: fs
+    c, tokens = setup(make_client, db)
+    a = _register(c, tokens[0], photo=True)
+    r = c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/png"})
+    assert r.status_code == 200, r.text
+    up = r.json()
+    assert up["url"].startswith("https://fake/") and up["headers"]["Content-Type"] == "image/png"
+    img = db.get(AssetImage, __import__("uuid").UUID(up["image_id"]))
+    assert img.asset_id is not None and img.kind == "placa"
+    assert c.post(f"/assets/{a['id']}/fotos", json={"content_type": "text/html"}).status_code == 422
+    fs.objects[img.storage_key] = {"size": 10, "content_type": "image/png"}
+    assert c.post(f"/assets/{a['id']}/images/{up['image_id']}/uploaded").status_code == 200
+    assert c.get(f"/assets/{a['id']}").json()["status"] == "registrado"

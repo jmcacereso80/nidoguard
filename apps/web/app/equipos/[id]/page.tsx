@@ -7,6 +7,7 @@ import { Shell, Card, ErrorNote, Pronto } from "@/components/Shell";
 import { Icon, equipmentIcon } from "@/components/Icon";
 import { Asset, Space, useApi } from "@/lib/api";
 import { statusInfo } from "@/lib/assetStatus";
+import { RetakePhoto } from "@/components/RetakePhoto";
 
 type Detail = Asset & {
   extra?: { nombre_pendiente?: boolean } | null;
@@ -124,6 +125,8 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
               No pudimos saber qué equipo es. Escríbelo en “Corregir datos” para poder confirmarlo.
             </p>
           )}
+
+          {a.status === "necesita_foto" && <RetakePhoto assetId={id} onDone={() => refresh()} />}
 
           {a.status === "por_confirmar" && a.reading && (
             <Card className="flex flex-col gap-3">

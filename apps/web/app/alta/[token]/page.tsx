@@ -6,27 +6,13 @@ import { Shell, Card, ErrorNote } from "@/components/Shell";
 import { Icon, SPACE_ICONS } from "@/components/Icon";
 import { Kit, Space, useApi } from "@/lib/api";
 import { STILL_READING, statusInfo } from "@/lib/assetStatus";
+import { putWithProgress, sleep, Upload } from "@/lib/upload";
+import { RetakePhoto } from "@/components/RetakePhoto";
 
-type Upload = { image_id: string; url: string; headers: Record<string, string> };
 type Created = { id: string; upload?: Upload };
 type Stage = "form" | "subiendo" | "leyendo" | "listo" | "error_foto";
 
 const LAST_SPACE = "ng:last-space";
-
-/** Sube el archivo directo a R2 y avisa el progreso (0 a 100). */
-function putWithProgress(upload: Upload, file: File, onProgress: (pct: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", upload.url);
-    Object.entries(upload.headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
-    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`R2 respondió ${xhr.status}`)));
-    xhr.onerror = () => reject(new Error("Sin conexión con el servidor de fotos"));
-    xhr.send(file);
-  });
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export default function Alta({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
@@ -177,6 +163,9 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
           <p className={`text-lg font-extrabold ${toneClass}`}>{info.label}</p>
           <p className="text-sm text-muted">{info.detail}</p>
         </Card>
+        {finalStatus === "necesita_foto" && assetId && (
+          <div className="mt-4"><RetakePhoto assetId={assetId} onDone={(st) => setFinalStatus(st)} /></div>
+        )}
         <Card className="mt-4 flex flex-col gap-2">
           <p className="font-extrabold text-ink">¿Qué sigue?</p>
           <p className="text-sm text-muted">Puedes registrar otro equipo con otra etiqueta de tu kit, o volver al inicio.</p>

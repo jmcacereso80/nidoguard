@@ -108,6 +108,27 @@ def create_asset(body: AssetIn, user: User = Depends(current_user), org: Organiz
     return out
 
 
+class PhotoIn(BaseModel):
+    content_type: str
+
+
+@router.post("/{asset_id}/fotos")
+def new_photo(asset_id: uuid.UUID, body: PhotoIn, org: Organization = Depends(current_org),
+              db: Session = Depends(get_db), storage: Storage = Depends(get_storage)):
+    """Foto nueva para un equipo que ya existe (p. ej. la anterior salio borrosa)."""
+    a = _own(db, org, asset_id)
+    ext = ALLOWED_TYPES.get(body.content_type)
+    if not ext:
+        raise HTTPException(422, "Formato de foto no permitido. Usa JPG, PNG, WEBP o HEIC.")
+    img_id = uuid.uuid4()
+    key = f"org/{org.id}/assets/{a.id}/{img_id}.{ext}"
+    db.add(AssetImage(id=img_id, asset_id=a.id, organization_id=org.id, kind="placa",
+                      storage_key=key, content_type=body.content_type))
+    db.commit()
+    return {"image_id": str(img_id), "method": "PUT", "url": storage.presign_put(key, body.content_type),
+            "headers": {"Content-Type": body.content_type}}
+
+
 @router.post("/{asset_id}/images/{image_id}/uploaded")
 def image_uploaded(asset_id: uuid.UUID, image_id: uuid.UUID, tasks: BackgroundTasks,
                    org: Organization = Depends(current_org), db: Session = Depends(get_db),
@@ -122,6 +143,7 @@ def image_uploaded(asset_id: uuid.UUID, image_id: uuid.UUID, tasks: BackgroundTa
     if info["size"] > MAX_BYTES:
         raise HTTPException(413, "La foto es demasiado pesada (máximo 12 MB).")
     img.uploaded = True
+    asset.status = AssetStatus.registrado          # vuelve a leer la placa con esta foto
     db.add(AssetReading(asset_id=asset.id, organization_id=org.id, source="ia", status=ReadingStatus.procesando))
     db.commit()
     tasks.add_task(readings.enqueue_reading, asset.id, img.id)
