@@ -14,6 +14,12 @@ const EVENT: Record<string, string> = {
   registro: "Registrado", lectura_ia: "Placa leída", confirmado: "Datos confirmados",
   datos_manuales: "Datos escritos a mano", edicion: "Datos corregidos",
 };
+// Nombres en español de los datos que lee la IA de la placa.
+const READ_LABEL: Record<string, string> = {
+  brand: "Marca", model: "Modelo", serial: "Número de serie", product_number: "Número de producto",
+  category: "Tipo", voltage: "Voltaje", frequency: "Frecuencia", capacity: "Capacidad", power: "Potencia",
+  refrigerant: "Refrigerante", country: "Origen", certifications: "Certificaciones", manufacture_date: "Fecha de fabricación",
+};
 const FIELDS = ["name", "category", "brand", "model", "serial"] as const;
 type Field = (typeof FIELDS)[number];
 const LABEL: Record<Field, string> = { name: "Nombre", category: "Tipo", brand: "Marca", model: "Modelo", serial: "Número de serie" };
@@ -96,10 +102,22 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
         <Card className="flex flex-col gap-2">
           <p className={`text-lg font-extrabold ${toneClass}`}>{info.label}</p>
           <p className="text-sm text-muted">{info.detail}</p>
-          {a.status === "por_confirmar" && (
-            <button className="btn mt-2 w-full" disabled={busy} onClick={confirmData}>Confirmar datos</button>
-          )}
         </Card>
+
+        {a.status === "por_confirmar" && a.reading && (
+          <Card className="flex flex-col gap-3">
+            <p className="font-extrabold text-ink">Datos leídos de la placa</p>
+            <p className="text-sm text-muted">Los leyó la IA. Revísalos: si algo está mal, corrígelo abajo antes de confirmar.</p>
+            <dl className="grid grid-cols-2 gap-y-2 text-sm">
+              {Object.entries(a.reading.fields)
+                .filter(([k, v]) => v && k !== "suggested_name" && READ_LABEL[k])
+                .map(([k, v]) => (
+                  <div key={k} className="contents"><dt className="text-muted">{READ_LABEL[k]}</dt><dd className="font-semibold">{String(v)}</dd></div>
+                ))}
+            </dl>
+            <button className="btn w-full" disabled={busy} onClick={confirmData}>Confirmar estos datos</button>
+          </Card>
+        )}
 
         <Card>
           <dl className="grid grid-cols-2 gap-y-2 text-sm">
