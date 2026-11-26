@@ -123,6 +123,9 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
           )}
 
           {a.status === "necesita_foto" && <RetakePhoto assetId={id} onDone={() => refresh()} />}
+          {(a.status === "faltan_datos" || asset.extra?.nombre_pendiente) && (
+            <RetakePhoto kind="equipo" assetId={id} onDone={() => refresh()} />
+          )}
 
           {a.status === "por_confirmar" && a.reading && (
             <Card className="flex flex-col gap-3">

@@ -127,3 +127,45 @@ def test_retake_photo_for_existing_asset_restarts_reading(make_client, db):
     fs.objects[img.storage_key] = {"size": 10, "content_type": "image/png"}
     assert c.post(f"/assets/{a['id']}/images/{up['image_id']}/uploaded").status_code == 200
     assert c.get(f"/assets/{a['id']}").json()["status"] == "registrado"
+
+
+def test_product_photo_alone_does_not_start_a_reading(make_client, db):
+    from app.models import AssetImage, AssetReading
+    import uuid
+    fs = FakeStorage(); app.dependency_overrides[get_storage] = lambda: fs
+    c, tokens = setup(make_client, db)
+    a = _register(c, tokens[0], photo=True)
+    r = c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"})
+    assert r.status_code == 200
+    img = db.get(AssetImage, uuid.UUID(r.json()["image_id"]))
+    fs.objects[img.storage_key] = {"size": 10, "content_type": "image/jpeg"}
+    up = c.post(f"/assets/{a['id']}/images/{img.id}/uploaded")
+    assert up.status_code == 200 and up.json()["lectura"] is False
+    assert db.query(AssetReading).filter_by(asset_id=a["id"]).count() == 0
+
+
+def test_reader_gets_plate_and_product_photos_together(make_client, db):
+    import uuid
+    from app.models import AssetImage
+    from app.services.readings import process_reading
+    from tests.test_fase5 import ext
+    fs = FakeStorage(); app.dependency_overrides[get_storage] = lambda: fs
+    c, tokens = setup(make_client, db)
+    a = _register(c, tokens[0], photo=True)
+    placa = db.query(AssetImage).filter_by(asset_id=a["id"]).one()
+    placa.uploaded = True
+    r = c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"})
+    equipo = db.get(AssetImage, uuid.UUID(r.json()["image_id"]))
+    equipo.uploaded = True; db.commit()
+
+    class Capture:
+        name = "capture"
+        def __init__(self): self.calls = []
+        def read(self, image, ct, extra=None):
+            self.calls.append((image, ct, extra)); return ext()
+    cap = Capture()
+    process_reading(db, fs, uuid.UUID(a["id"]), placa.id, cap, None)
+    _, _, extra = cap.calls[0]
+    assert extra is not None and len(extra) == 1 and extra[0][1] == "image/jpeg"
+    assert c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"}).status_code == 200
+    assert c.post(f"/assets/{a['id']}/fotos", json={"content_type": "image/jpeg", "kind": "equipo"}).status_code == 422

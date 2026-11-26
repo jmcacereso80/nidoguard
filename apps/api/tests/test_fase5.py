@@ -17,7 +17,7 @@ class Store:
 
 class Fake:
     def __init__(self, name, extraction): self.name, self.e, self.calls = name, extraction, 0
-    def read(self, image, ct): self.calls += 1; return self.e
+    def read(self, image, ct, extra=None): self.calls += 1; return self.e
 
 
 def ext(legible=True, brand=("Mabe", .95), model=("LMA123", .9)):

@@ -10,7 +10,13 @@ import { STILL_READING } from "@/lib/assetStatus";
  * Toma otra foto de la placa de un equipo que ya existe, la sube y espera la nueva lectura.
  * onDone recibe el nuevo estado del equipo (o "leyendo" si tarda demasiado).
  */
-export function RetakePhoto({ assetId, onDone }: { assetId: string; onDone: (status: string) => void }) {
+export type PhotoKind = "placa" | "equipo";
+const TEXT: Record<PhotoKind, { title: string; help: string }> = {
+  placa: { title: "Tomar otra foto de la placa", help: "Acércate a la placa, con buena luz y sin reflejos. Que se vean bien la marca, el modelo y la serie." },
+  equipo: { title: "Agregar foto del equipo", help: "Toma el equipo completo, de frente y con buena luz. Así podemos saber qué es aunque la placa no se lea." },
+};
+
+export function RetakePhoto({ assetId, onDone, kind = "placa" }: { assetId: string; onDone: (status: string) => void; kind?: PhotoKind }) {
   const api = useApi(); const qc = useQueryClient();
   const camRef = useRef<HTMLInputElement>(null);
   const pickRef = useRef<HTMLInputElement>(null);
@@ -21,7 +27,7 @@ export function RetakePhoto({ assetId, onDone }: { assetId: string; onDone: (sta
   async function subir(file: File) {
     setMsg(null); setPct(0); setPhase("subiendo");
     try {
-      const up = await api<Upload>(`/assets/${assetId}/fotos`, { method: "POST", body: JSON.stringify({ content_type: file.type || "image/jpeg" }) });
+      const up = await api<Upload>(`/assets/${assetId}/fotos`, { method: "POST", body: JSON.stringify({ content_type: file.type || "image/jpeg", kind }) });
       await putWithProgress(up, file, setPct);
       await api(`/assets/${assetId}/images/${up.image_id}/uploaded`, { method: "POST" });
       setPhase("leyendo");
@@ -40,8 +46,8 @@ export function RetakePhoto({ assetId, onDone }: { assetId: string; onDone: (sta
   const busy = phase === "subiendo" || phase === "leyendo";
   return (
     <Card className="flex flex-col gap-3">
-      <p className="font-extrabold text-ink">Tomar otra foto</p>
-      <p className="text-sm text-muted">Acércate a la placa, con buena luz y sin reflejos. Que se vean bien la marca, el modelo y la serie.</p>
+      <p className="font-extrabold text-ink">{TEXT[kind].title}</p>
+      <p className="text-sm text-muted">{TEXT[kind].help}</p>
       <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = ""; }} />
       <input ref={pickRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = ""; }} />
       {phase === "idle" || phase === "error" ? (

@@ -22,10 +22,11 @@ def _needs_fallback(r: PlateExtraction) -> bool:
     return any((getattr(r, f).value is None or getattr(r, f).confidence < low) for f in KEY_FIELDS)
 
 
-def read_with_fallback(image: bytes, content_type: str, reader: PlateReader, fallback: PlateReader | None):
-    result, used = reader.read(image, content_type), reader.name
+def read_with_fallback(image: bytes, content_type: str, reader: PlateReader, fallback: PlateReader | None,
+                       extra: list[tuple[bytes, str]] | None = None):
+    result, used = reader.read(image, content_type, extra), reader.name
     if fallback is not None and _needs_fallback(result):
-        better = fallback.read(image, content_type)
+        better = fallback.read(image, content_type, extra)
         if better.legible:
             result, used = better, fallback.name
     return result, used
@@ -34,14 +35,21 @@ def read_with_fallback(image: bytes, content_type: str, reader: PlateReader, fal
 def process_reading(db: Session, storage: Storage, asset_id: uuid.UUID, image_id: uuid.UUID,
                     reader: PlateReader, fallback: PlateReader | None = None) -> AssetReading:
     asset = db.get(EquipmentAsset, asset_id)
-    img = db.get(AssetImage, image_id)
+    # Todas las fotos subidas del equipo: la placa primero, luego las del equipo completo (max. 3).
+    imgs = list(db.scalars(select(AssetImage).where(AssetImage.asset_id == asset_id, AssetImage.uploaded.is_(True))
+                           .order_by((AssetImage.kind != "placa").asc(), AssetImage.created_at.desc()).limit(3)))
+    if not imgs:
+        imgs = [db.get(AssetImage, image_id)]
+    img, extra_imgs = imgs[0], imgs[1:]
     reading = db.scalar(select(AssetReading).where(AssetReading.asset_id == asset_id, AssetReading.source == "ia")
                         .order_by(AssetReading.created_at.desc()))
     if reading is None:
         reading = AssetReading(asset_id=asset_id, organization_id=asset.organization_id, source="ia")
         db.add(reading)
     try:
-        result, used = read_with_fallback(storage.get_bytes(img.storage_key), img.content_type, reader, fallback)
+        extra = [(storage.get_bytes(o.storage_key), o.content_type) for o in extra_imgs]
+        result, used = read_with_fallback(storage.get_bytes(img.storage_key), img.content_type, reader, fallback,
+                                          extra or None)
     except Exception as e:  # la lectura nunca debe romper el alta
         log.exception("fallo la lectura de la placa")
         reading.status, reading.error = ReadingStatus.error, str(e)[:500]

@@ -27,6 +27,9 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
   const [name, setName] = useState("");
   const [spaceId, setSpaceId] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [productFile, setProductFile] = useState<File | null>(null);   // foto opcional del equipo completo
+  const prodCamRef = useRef<HTMLInputElement>(null);
+  const prodPickRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -89,6 +92,13 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
     setFinalStatus("leyendo"); setStage("listo");
   }
 
+  // Foto del equipo completo: se sube antes que la placa; si falla, el alta sigue con la placa.
+  async function subirProducto(id: string, f: File) {
+    const up = await api<Upload>(`/assets/${id}/fotos`, { method: "POST", body: JSON.stringify({ content_type: f.type || "image/jpeg", kind: "equipo" }) });
+    await putWithProgress(up, f, setPct);
+    await api(`/assets/${id}/images/${up.image_id}/uploaded`, { method: "POST" });
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr(null);
     try {
@@ -104,6 +114,10 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
       if (a.upload && file) {
         setUpload(a.upload);
         setBusy(false);
+        if (productFile) {
+          setStage("subiendo"); setPct(0);
+          try { await subirProducto(a.id, productFile); } catch { /* opcional: seguimos con la placa */ }
+        }
         await subirFoto(a.id, a.upload, file);
       } else {
         setSinFoto(true); setFinalStatus("registrado"); setStage("listo"); setBusy(false);
@@ -166,6 +180,9 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
         {finalStatus === "necesita_foto" && assetId && (
           <div className="mt-4"><RetakePhoto assetId={assetId} onDone={(st) => setFinalStatus(st)} /></div>
         )}
+        {(finalStatus === "necesita_foto" || finalStatus === "faltan_datos") && assetId && (
+          <div className="mt-4"><RetakePhoto kind="equipo" assetId={assetId} onDone={(st) => setFinalStatus(st)} /></div>
+        )}
         <Card className="mt-4 flex flex-col gap-2">
           <p className="font-extrabold text-ink">¿Qué sigue?</p>
           <p className="text-sm text-muted">Puedes registrar otro equipo con otra etiqueta de tu kit, o volver al inicio.</p>
@@ -195,6 +212,20 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
             <button type="button" className="btn btn-ghost !min-h-11 w-full !text-[15px]" onClick={() => pickRef.current?.click()}>Subir foto</button>
           </div>
         </div>
+        {file && (
+          <div className="g rounded-[26px] p-3.5">
+            <div className="flex items-center gap-3">
+              <span className="icon-tile !h-12 !w-12 !rounded-2xl"><Icon name="camera" size={24} /></span>
+              <span className="min-w-0 flex-1"><span className="block text-[15px] font-extrabold">Foto del equipo (opcional)</span><span className="block text-[12.5px] leading-tight text-muted">{productFile ? "Foto del equipo lista." : "Si la placa no dice qué equipo es, una foto del equipo completo nos ayuda a identificarlo."}</span></span>
+            </div>
+            <input ref={prodCamRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => setProductFile(e.target.files?.[0] ?? null)} />
+            <input ref={prodPickRef} type="file" accept="image/*" hidden onChange={(e) => setProductFile(e.target.files?.[0] ?? null)} />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" className="btn btn-ghost !min-h-11 w-full !text-[15px]" onClick={() => prodCamRef.current?.click()}>Tomar foto del equipo</button>
+              <button type="button" className="btn btn-ghost !min-h-11 w-full !text-[15px]" onClick={() => prodPickRef.current?.click()}>Subir foto del equipo</button>
+            </div>
+          </div>
+        )}
         {!file && (
           <div>
             <label htmlFor="n" className="mb-1.5 block text-[13px] font-bold text-muted">Nombre</label>

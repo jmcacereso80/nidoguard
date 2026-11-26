@@ -1,8 +1,9 @@
 import uuid
+from typing import Literal
 from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..models import (
@@ -110,6 +111,7 @@ def create_asset(body: AssetIn, user: User = Depends(current_user), org: Organiz
 
 class PhotoIn(BaseModel):
     content_type: str
+    kind: Literal["placa", "equipo"] = "placa"
 
 
 @router.post("/{asset_id}/fotos")
@@ -120,9 +122,14 @@ def new_photo(asset_id: uuid.UUID, body: PhotoIn, org: Organization = Depends(cu
     ext = ALLOWED_TYPES.get(body.content_type)
     if not ext:
         raise HTTPException(422, "Formato de foto no permitido. Usa JPG, PNG, WEBP o HEIC.")
+    if body.kind == "equipo":
+        n = db.scalar(select(func.count()).select_from(AssetImage).where(
+            AssetImage.asset_id == a.id, AssetImage.kind == "equipo"))
+        if n >= 2:
+            raise HTTPException(422, "Puedes subir hasta 2 fotos del equipo.")
     img_id = uuid.uuid4()
     key = f"org/{org.id}/assets/{a.id}/{img_id}.{ext}"
-    db.add(AssetImage(id=img_id, asset_id=a.id, organization_id=org.id, kind="placa",
+    db.add(AssetImage(id=img_id, asset_id=a.id, organization_id=org.id, kind=body.kind,
                       storage_key=key, content_type=body.content_type))
     db.commit()
     return {"image_id": str(img_id), "method": "PUT", "url": storage.presign_put(key, body.content_type),
@@ -143,11 +150,17 @@ def image_uploaded(asset_id: uuid.UUID, image_id: uuid.UUID, tasks: BackgroundTa
     if info["size"] > MAX_BYTES:
         raise HTTPException(413, "La foto es demasiado pesada (máximo 12 MB).")
     img.uploaded = True
-    asset.status = AssetStatus.registrado          # vuelve a leer la placa con esta foto
-    db.add(AssetReading(asset_id=asset.id, organization_id=org.id, source="ia", status=ReadingStatus.procesando))
+    # Una foto del equipo sola espera a la placa; si el equipo ya fue leido, se vuelve a leer con todas.
+    leido = db.scalar(select(func.count()).select_from(AssetReading).where(
+        AssetReading.asset_id == asset.id, AssetReading.source == "ia")) or 0
+    if img.kind == "placa" or leido:
+        asset.status = AssetStatus.registrado
+        db.add(AssetReading(asset_id=asset.id, organization_id=org.id, source="ia", status=ReadingStatus.procesando))
+        db.commit()
+        tasks.add_task(readings.enqueue_reading, asset.id, img.id)
+        return {"ok": True, "lectura": True}
     db.commit()
-    tasks.add_task(readings.enqueue_reading, asset.id, img.id)
-    return {"ok": True}
+    return {"ok": True, "lectura": False}
 
 
 @router.get("")
