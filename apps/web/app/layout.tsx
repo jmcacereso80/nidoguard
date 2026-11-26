@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { esMX } from "@clerk/localizations";
 import Providers from "./providers";
+import { clerkAppearance } from "@/lib/clerkAppearance";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export const viewport: Viewport = { themeColor: "#183b56", width: "device-width"
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider localization={esMX}>
+    <ClerkProvider localization={esMX} appearance={clerkAppearance}>
       <html lang="es-MX">
         <body>
           <Providers>{children}</Providers>

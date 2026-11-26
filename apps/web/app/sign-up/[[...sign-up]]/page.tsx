@@ -1,4 +1,6 @@
 import { SignUp } from "@clerk/nextjs";
+import { AuthShell } from "@/components/AuthShell";
+
 export default function Page() {
-  return <main className="grid min-h-dvh place-items-center p-4"><SignUp fallbackRedirectUrl="/inicio" /></main>;
+  return <AuthShell back><SignUp fallbackRedirectUrl="/inicio" /></AuthShell>;
 }

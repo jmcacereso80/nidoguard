@@ -17,4 +17,5 @@ Fuente de verdad visual: los archivos de `docs/mockups/` (exportados del lienzo 
 
 ## Estado
 - Hecho: tokens, clases de vidrio, botones, campos, barra inferior, encabezado con logotipo, pantallas de Inicio, Por confirmar, Escanear, Alta rápida, Expediente, Activar kit y Etiqueta.
+- Entrada (bienvenida, crear cuenta, código por correo, iniciar sesión): tema de Clerk en `apps/web/lib/clerkAppearance.ts`; vista de referencia en `docs/mockups/Entrada_bienvenida_login_codigo.png` (aproximada: el formulario real lo dibuja Clerk).
 - Pendiente: pantallas del mockup que aún no existen en la app (Equipos, Cuidado, Servicios, Inicio sin equipos, Alta manual, pestañas del expediente, pantallas de carga); modo oscuro; logotipo vectorial oficial (hoy es una reconstrucción en `components/Logo.tsx`); decidir si la variante oscura del logotipo (cian y naranja) es oficial.
