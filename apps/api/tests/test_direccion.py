@@ -48,3 +48,11 @@ def test_address_is_isolated_between_homes(make_client):
     b = make_client(uid()); b.post("/home", json={"name": "B"})
     r = b.put(f"/properties/{pid}/address", json={"street": "Calle 1", "city": "CDMX"})
     assert r.status_code == 404
+
+
+def test_search_radius_is_saved_and_validated(make_client, db):
+    app.dependency_overrides[get_geocoder] = lambda: FakeGeocoder()
+    c = make_client(uid()); pid = _home(c)
+    ok = c.put(f"/properties/{pid}/address", json={"street": "Calle 1 número 2", "city": "CDMX", "search_radius_km": 25})
+    assert ok.status_code == 200 and ok.json()["search_radius_km"] == 25 and db.get(Property, pid).search_radius_km == 25
+    assert c.put(f"/properties/{pid}/address", json={"street": "Calle 1 número 2", "city": "CDMX", "search_radius_km": 7}).status_code == 422

@@ -23,6 +23,7 @@ class AddressIn(BaseModel):
     postal_code: str | None = Field(default=None, pattern=r"^\d{5}$")
     city: str = Field(min_length=2, max_length=120)
     state: str | None = Field(default=None, max_length=120)
+    search_radius_km: int = Field(default=15, pattern=None)
 
 
 class SpaceIn(BaseModel):
@@ -98,11 +99,13 @@ def set_address(property_id: str, body: AddressIn, org: Organization = Depends(c
     prop = db.scalar(select(Property).where(Property.id == property_id, Property.organization_id == org.id))
     if not prop:
         raise HTTPException(404, "No encontramos esa propiedad")
+    if body.search_radius_km not in (10, 15, 25):
+        raise HTTPException(422, "Elige 10, 15 o 25 km.")
     point = geo.geocode(body.street.strip(), body.colony, body.postal_code, body.city.strip(), body.state)
     if point is None:
         raise HTTPException(422, "No pudimos ubicar esa dirección en el mapa. Revisa la calle, el número y el código postal.")
     prop.street, prop.colony, prop.postal_code = body.street.strip(), body.colony, body.postal_code
-    prop.city, prop.state = body.city.strip(), body.state
+    prop.city, prop.state, prop.search_radius_km = body.city.strip(), body.state, body.search_radius_km
     prop.address = ", ".join(x for x in [prop.street, prop.colony, prop.city, prop.state] if x)
     prop.lat, prop.lng, prop.geocoded_at = point.lat, point.lng, datetime.now(timezone.utc)
     db.commit()
