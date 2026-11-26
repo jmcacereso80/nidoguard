@@ -50,7 +50,7 @@ export function Documentos({ id }: { id: string }) {
                 <p className="text-[13px] text-muted">{m.status === "buscando" ? "Buscando el documento de tu modelo" : m.status === "no_encontrado" ? "No lo encontramos todavía. Lo seguiremos intentando." : m.note}</p>
               </div>
               {m.status === "buscando" && <span className="chip"><Icon name="clock" size={13} stroke={2.4} />Buscando</span>}
-              {m.status === "listo" && m.url && <a href={m.url} target="_blank" rel="noreferrer" className="btn-ghost h-10 px-4 text-[14px] font-bold">Ver</a>}
+              {m.status === "listo" && m.url && <a href={m.url} target="_blank" rel="noreferrer" className="btn btn-ghost !min-h-10 !px-4 !text-[14px]">Ver</a>}
             </div>
           ))}
         </div>
@@ -122,13 +122,13 @@ function Subir({ id, kind, compact = false }: { id: string; kind: "garantia" | "
     <div className={compact ? "" : "mt-3"}>
       {compact ? (
         <div className="flex gap-2">
-          <button type="button" disabled={busy} aria-label="Tomar foto de la garantía" onClick={() => foto.current?.click()} className="btn-ghost grid h-10 w-11 place-items-center"><Icon name="camera" size={18} /></button>
-          <button type="button" disabled={busy} aria-label="Subir PDF de la garantía" onClick={() => pdf.current?.click()} className="btn-ghost grid h-10 w-11 place-items-center"><Icon name="file" size={18} /></button>
+          <button type="button" disabled={busy} aria-label="Tomar foto de la garantía" onClick={() => foto.current?.click()} className="btn btn-ghost !min-h-10 !w-11 !px-0"><Icon name="camera" size={18} /></button>
+          <button type="button" disabled={busy} aria-label="Subir PDF de la garantía" onClick={() => pdf.current?.click()} className="btn btn-ghost !min-h-10 !w-11 !px-0"><Icon name="file" size={18} /></button>
         </div>
       ) : (
       <div className="flex gap-2.5">
-        <button type="button" disabled={busy} onClick={() => foto.current?.click()} className="btn h-11 flex-1 text-[14px] font-bold"><Icon name="camera" size={17} />Tomar foto</button>
-        <button type="button" disabled={busy} onClick={() => pdf.current?.click()} className="btn-ghost h-11 flex-1 text-[14px] font-bold"><Icon name="file" size={17} />Subir PDF</button>
+        <button type="button" disabled={busy} onClick={() => foto.current?.click()} className="btn !min-h-11 flex-1 !px-3 !text-[14px]"><Icon name="camera" size={17} />Tomar foto</button>
+        <button type="button" disabled={busy} onClick={() => pdf.current?.click()} className="btn btn-ghost !min-h-11 flex-1 !px-3 !text-[14px]"><Icon name="file" size={17} />Subir PDF</button>
       </div>)}
       <input ref={foto} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { enviar(e.target.files?.[0]); e.target.value = ""; }} />
       <input ref={pdf} type="file" accept="application/pdf" hidden onChange={(e) => { enviar(e.target.files?.[0]); e.target.value = ""; }} />
