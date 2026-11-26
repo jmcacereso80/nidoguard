@@ -78,3 +78,35 @@ def test_other_home_cannot_edit_or_delete(make_client, db):
     assert intruso.patch(f"/assets/{a['id']}", json={"name": "Robado"}).status_code in (403, 404)
     assert intruso.delete(f"/assets/{a['id']}").status_code in (403, 404)
     assert db.get(EquipmentAsset, a["id"]) is not None
+
+
+def test_name_is_taken_from_ai_when_user_does_not_type_it(make_client, db):
+    from app.models import AssetImage
+    from app.services.readings import process_reading
+    from tests.test_fase5 import Fake, Store, ext
+    app.dependency_overrides[get_storage] = lambda: FakeStorage()
+    c, tokens = setup(make_client, db)
+    a = c.post("/assets", json={"tag_token": tokens[0], "new_space_name": "Cocina",
+                                "plate_content_type": "image/jpeg"}).json()
+    assert a["name"] == "Equipo sin nombre"                # sin nombre: se espera la lectura
+    img = db.query(AssetImage).filter_by(asset_id=a["id"]).one()
+    process_reading(db, Store(), img.asset_id, img.id, Fake("haiku", ext()), None)  # sugiere "Lavadora"
+    assert c.get(f"/assets/{a['id']}").json()["name"] == "Lavadora"
+
+
+def test_without_ai_name_user_must_type_it_before_confirming(make_client, db):
+    from app.models import AssetImage
+    from app.services.plate_reader import PlateExtraction
+    from app.services.readings import process_reading
+    from tests.test_fase5 import Fake, Store, ext
+    app.dependency_overrides[get_storage] = lambda: FakeStorage()
+    c, tokens = setup(make_client, db)
+    a = c.post("/assets", json={"tag_token": tokens[0], "new_space_name": "Cocina",
+                                "plate_content_type": "image/jpeg"}).json()
+    img = db.query(AssetImage).filter_by(asset_id=a["id"]).one()
+    sin_nombre = ext().model_copy(update={"suggested_name": None})
+    process_reading(db, Store(), img.asset_id, img.id, Fake("haiku", sin_nombre), None)
+    assert c.post(f"/assets/{a['id']}/confirm", json={}).status_code == 422
+    assert c.patch(f"/assets/{a['id']}", json={"name": "Estufa"}).status_code == 200
+    r = c.post(f"/assets/{a['id']}/confirm", json={})
+    assert r.status_code == 200 and r.json()["name"] == "Estufa" and r.json()["status"] == "completo"

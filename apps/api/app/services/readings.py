@@ -61,6 +61,9 @@ def process_reading(db: Session, storage: Storage, asset_id: uuid.UUID, image_id
         reading.status, asset.status = ReadingStatus.faltan_datos, AssetStatus.faltan_datos
     else:
         reading.status, asset.status = ReadingStatus.lista, AssetStatus.por_confirmar
+    if (asset.extra or {}).get("nombre_pendiente") and fields.get("suggested_name"):
+        asset.name = fields["suggested_name"][:200]
+        asset.extra = {**asset.extra, "nombre_pendiente": False}
     db.add(AssetEvent(asset_id=asset_id, organization_id=asset.organization_id, type="lectura_ia",
                       payload={"estado": reading.status.value, "modelo_ia": used}))
     db.commit()

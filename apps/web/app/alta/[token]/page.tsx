@@ -53,7 +53,8 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
 
   useEffect(() => { const s = sessionStorage.getItem(LAST_SPACE); if (s) setSpaceId(s); }, []);
   const adding = spaceId === "__nueva";
-  const ready = name.trim() && (adding ? newSpace.trim() : spaceId);
+  // Con foto no hace falta el nombre: lo lee la IA. Sin foto, el nombre es obligatorio.
+  const ready = (file || name.trim()) && (adding ? newSpace.trim() : spaceId);
 
   async function subirFoto(id: string, up: Upload, f: File) {
     setStage("subiendo"); setPct(0); setUpErr(null);
@@ -85,7 +86,8 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
   async function save(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr(null);
     try {
-      const body = { tag_token: token, name, plate_content_type: file?.type || undefined,
+      // Con foto, el tipo de equipo lo toma la IA de la placa; sin foto, lo escribe la persona.
+      const body = { tag_token: token, name: file ? undefined : name, plate_content_type: file?.type || undefined,
                      ...(adding ? { new_space_name: newSpace } : { space_id: spaceId }) };
       const a = await api<Created>("/assets", { method: "POST", body: JSON.stringify(body) });
       await qc.invalidateQueries({ queryKey: ["spaces"] });
@@ -181,12 +183,16 @@ export default function Alta({ params }: { params: Promise<{ token: string }> })
             <button type="button" className="btn btn-copper w-full" onClick={() => camRef.current?.click()}>Tomar foto</button>
             <button type="button" className="btn btn-ghost w-full" onClick={() => pickRef.current?.click()}>Subir foto</button>
           </div>
-          {file && <p className="mt-2 text-sm font-semibold text-[var(--ng-ok)]">Foto lista</p>}
+          {file && <p className="mt-2 text-sm font-semibold text-[var(--ng-ok)]">Foto lista. El tipo de equipo lo leeremos de la placa.</p>}
         </Card>
         <Card className="flex flex-col gap-3">
-          <label htmlFor="n" className="font-extrabold text-ink">2. ¿Qué equipo es?</label>
-          <input id="n" className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Lavadora" maxLength={200} required />
-          <label htmlFor="s" className="font-extrabold text-ink">3. ¿Dónde está?</label>
+          {!file && (
+            <>
+              <label htmlFor="n" className="font-extrabold text-ink">2. ¿Qué equipo es?</label>
+              <input id="n" className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Lavadora" maxLength={200} required />
+            </>
+          )}
+          <label htmlFor="s" className="font-extrabold text-ink">{file ? "2" : "3"}. ¿Dónde está?</label>
           <select id="s" className="field" value={spaceId} onChange={(e) => setSpaceId(e.target.value)} required>
             <option value="" disabled>Elige un lugar</option>
             {spaces.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}

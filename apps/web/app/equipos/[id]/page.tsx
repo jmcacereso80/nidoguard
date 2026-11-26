@@ -7,6 +7,7 @@ import { Asset, Space, useApi } from "@/lib/api";
 import { statusInfo } from "@/lib/assetStatus";
 
 type Detail = Asset & {
+  extra?: { nombre_pendiente?: boolean } | null;
   reading: { status: string; source: string; fields: Record<string, string>; confidence: Record<string, number>; confirmed: boolean } | null;
   events: { type: string; at: string; payload: Record<string, unknown> }[];
 };
@@ -102,6 +103,11 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
         <Card className="flex flex-col gap-2">
           <p className={`text-lg font-extrabold ${toneClass}`}>{info.label}</p>
           <p className="text-sm text-muted">{info.detail}</p>
+          {asset.extra?.nombre_pendiente && (
+            <p className="text-sm font-semibold text-[var(--ng-warn)]">
+              No pudimos saber qué equipo es. Escríbelo en “Corregir datos” para poder confirmarlo.
+            </p>
+          )}
         </Card>
 
         {a.status === "por_confirmar" && a.reading && (

@@ -15,13 +15,14 @@ from ..services.storage import ALLOWED_TYPES, MAX_BYTES, Storage, get_storage
 
 router = APIRouter(prefix="/assets", tags=["equipos"])
 
+NAME_PENDING = "Equipo sin nombre"
 PENDING = (AssetStatus.registrado, AssetStatus.leido, AssetStatus.por_confirmar,
            AssetStatus.necesita_foto, AssetStatus.faltan_datos)
 
 
 class AssetIn(BaseModel):
     tag_token: str
-    name: str = Field(min_length=1, max_length=200)
+    name: str | None = Field(default=None, max_length=200)  # si no viene, la IA lo sugiere de la placa
     space_id: uuid.UUID | None = None
     new_space_name: str | None = Field(default=None, max_length=120)
     plate_content_type: str | None = None
@@ -83,8 +84,10 @@ def create_asset(body: AssetIn, user: User = Depends(current_user), org: Organiz
         db.flush()
     else:
         raise HTTPException(422, "Elige dónde está el equipo.")
-    asset = EquipmentAsset(organization_id=org.id, tag_id=tag.id, space_id=space.id, name=body.name.strip(),
-                           created_by=user.id, extra={})
+    given = (body.name or "").strip()
+    asset = EquipmentAsset(organization_id=org.id, tag_id=tag.id, space_id=space.id,
+                           name=given or NAME_PENDING, created_by=user.id,
+                           extra={} if given else {"nombre_pendiente": True})
     db.add(asset)
     db.flush()
     tag.status = TagStatus.vinculada
@@ -190,6 +193,8 @@ def edit_asset(asset_id: uuid.UUID, body: AssetEditIn, user: User = Depends(curr
         if k in changes:
             v = (changes[k] or "").strip() or None
             setattr(a, k, v)
+    if "name" in changes:
+        a.extra = {**(a.extra or {}), "nombre_pendiente": False}
     _event(db, a, "edicion", user, fields=sorted(changes.keys()))
     db.commit()
     return _out(a)
@@ -238,8 +243,11 @@ def confirm(asset_id: uuid.UUID, body: ConfirmIn, user: User = Depends(current_u
     edits = body.model_dump(exclude_none=True)
     name = edits.pop("name", None)
     _apply(a, {**base, **edits})
-    if name:
+    if name and name.strip():
         a.name = name.strip()
+        a.extra = {**(a.extra or {}), "nombre_pendiente": False}
+    if (a.extra or {}).get("nombre_pendiente"):
+        raise HTTPException(422, "Escribe qué equipo es antes de confirmar.")
     if r:
         r.confirmed_at = datetime.now(timezone.utc)
     a.status = AssetStatus.completo
