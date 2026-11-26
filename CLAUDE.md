@@ -16,3 +16,5 @@ Despliegue inicial: un solo servidor Ubuntu con todo; luego se expande.
 
 ## Alcance etapa 1
 Cuenta y hogar, kits y activacion por QR (codigo de un solo uso con hash en BD + codigo corto escribible), rutas /k/<codigo> y /t/<token>, escaner dentro de la app, alta rapida (etiqueta + foto de placa + ubicacion + nombre), lectura de placa con IA, expediente basico.
+
+Estado actual: docs/ESTADO_ETAPA_1.md. Los documentos de decisiones, plan y modelo de datos viven en el Project NIDOGUARD de claude.ai.
