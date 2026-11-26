@@ -16,7 +16,15 @@ Base: PostgreSQL 17. Un solo servidor Ubuntu al inicio. Dominio `nidoguard.com` 
 - **Cuidados (fase cuidado básico):** tareas por frecuencia generadas con Claude (`CARE_MODEL`, por defecto `claude-haiku-5-5`), planes compartidos por modelo (`care_templates`), marcar como realizado con historial, reprogramar, "Me sirve" y "No aplica", menú Cuidado con Próximas, Vencidas, Garantías, Historial y vista Semana | Mes. Migraciones 0005 y 0006.
 - Pruebas: API 61 y web 33 (al cierre de cuidados).
 
+- **Cotizar y agendar servicio (etapas A y B):** direcciones del hogar, directorio de técnicos (Google Maps vía Apify, se busca una vez por ciudad y especialidad), solicitudes, cotizaciones por llamada con Retell en oleadas, webhook firmado y extractor. Todo apagado por defecto. Migraciones 0007 a 0010 aplicadas en la base de desarrollo.
+- Pruebas de cotizar: API 103 de 103, web 42 de 42, `build` compila todas las rutas.
+- Directorio real probado en Tepoztlán, Morelos (refrigeración): 3 técnicos con teléfono mexicano válido. Costo del actor de Maps: US$0.004 por lugar.
+- Retell: agente de prueba creado con el guion de `docs/agente_cotizador.md` (idioma es-419, voz Claudia). El número de salida es el de la cuenta.
+
 ## Pendiente o sin probar
+- **Prueba de llamadas con Retell de punta a punta:** falta agregar una dirección del hogar en Inicio, y después una prueba con `CALLS_ENABLED=true` y `CALLS_ALLOWLIST` solo con tu número. Luego se regresa a `false`.
+- **Grabaciones de llamadas:** requieren crear un bucket de R2; pendiente de tu permiso.
+- **Pieza 6 (Prefect para cotizaciones):** pendiente de tu permiso para alojarla.
 - **R2:** los buckets no están creados y la escritura no se probó. Requiere tu autorización.
 - **Clerk con una cuenta real:** la verificación del token (JWKS) y el flujo de login no se han ejecutado de punta a punta; se necesita correr la web con tus llaves.
 - **Prefect:** los flujos de manuales y de cuidados corren desde la API; `apps/worker/flows.py` (lectura de placas) sigue sin probar contra un servidor de Prefect.

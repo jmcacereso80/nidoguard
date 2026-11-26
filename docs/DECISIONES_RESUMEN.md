@@ -21,3 +21,9 @@ Q-007 métodos de login (hoy: lo que Clerk ofrezca) · Q-010 Prefect Cloud o pro
 
 ## Flujo del cliente (resumen)
 Nuevo: escanea QR de la hoja → "Crea tu cuenta para activar tu kit" → kit reclamado → crea hogar → escanea etiqueta dentro de la app → foto de placa + nombre + ubicación → lectura en segundo plano → "Por confirmar". Con cuenta: sin sesión inicia sesión y regresa; compra otro kit y lo reclama directo; etiqueta disponible de su kit se vincula; etiqueta vinculada abre el expediente; etiqueta ajena no muestra nada privado. En iPhone, Safari y la PWA no comparten sesión: guiar la instalación tras reclamar el kit.
+
+## Cotizar y agendar servicio (2026-11-26)
+- **NidoGuard no cobra por el servicio.** El pago es directo entre la persona y el técnico.
+- **Cotizaciones anónimas:** al técnico se le da la zona (colonia y ciudad), nunca la dirección ni el nombre de la persona.
+- **Llamadas en oleadas de 3, hasta 5 cotizaciones:** se detiene al llegar a 5.
+- **Todo apagado por defecto:** `CALLS_ENABLED=false`. Solo se marca a `CALLS_ALLOWLIST` mientras se prueba.
