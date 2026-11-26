@@ -11,11 +11,17 @@ Base: PostgreSQL 17. Un solo servidor Ubuntu al inicio. Dominio `nidoguard.com` 
 - **Fase 5:** lectura de placas con Claude Haiku 5.5, respaldo Sonnet 5.5 si hay baja confianza, `null` para lo ilegible, transcripción literal, EXIF eliminado. Probado con la API real en placas sintéticas: lectura correcta con confianza alta; foto borrosa → "necesita otra foto" sin inventar.
 - **Fase 6:** expediente básico (`GET /assets/{id}`, historial de solo agregar, pantalla del equipo).
 - Pruebas: 17 de API y 2 de web; la web compila (`next build`).
+- **Documentos del equipo:** garantía y factura (foto o PDF, fecha de vencimiento que escribe la persona, precio editable, documento de respaldo sin IA). Migración 0002.
+- **Manual de uso:** búsqueda por marca y modelo confirmados con Apify (Google) y Prefect; se guardan hasta 3 enlaces con la nota "podemos equivocarnos". Migraciones 0003 y 0004.
+- **Cuidados (fase cuidado básico):** tareas por frecuencia generadas con Claude (`CARE_MODEL`, por defecto `claude-haiku-5-5`), planes compartidos por modelo (`care_templates`), marcar como realizado con historial, reprogramar, "Me sirve" y "No aplica", menú Cuidado con Próximas, Vencidas, Garantías, Historial y vista Semana | Mes. Migraciones 0005 y 0006.
+- Pruebas: API 61 y web 33 (al cierre de cuidados).
 
 ## Pendiente o sin probar
 - **R2:** los buckets no están creados y la escritura no se probó. Requiere tu autorización.
 - **Clerk con una cuenta real:** la verificación del token (JWKS) y el flujo de login no se han ejecutado de punta a punta; se necesita correr la web con tus llaves.
-- **Prefect:** `apps/worker/flows.py` está escrito, no probado. Hoy la lectura corre en segundo plano dentro de la API.
+- **Prefect:** los flujos de manuales y de cuidados corren desde la API; `apps/worker/flows.py` (lectura de placas) sigue sin probar contra un servidor de Prefect.
+- **Cuidados pendientes:** recordatorio semanal por push o WhatsApp; cuidados leídos del manual por modelo (requiere el bucket `nidoguard-knowledge`, con permiso).
+- **Cuidados sin probar de punta a punta con cuenta real de Clerk:** pasos de la lista de prueba pendientes de confirmar en el celular.
 - **Row Level Security** en Postgres (segunda barrera): no implementado. Hoy el aislamiento se garantiza con filtros por hogar en la API, probados.
 - **Playwright de punta a punta, Sentry, íconos de la PWA y caché sin conexión (Serwist):** pendientes.
 - **Evaluación de lectura con 50 a 100 placas reales** (D-009): pendiente; hasta ahora solo placas sintéticas.
