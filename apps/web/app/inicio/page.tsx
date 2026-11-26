@@ -25,6 +25,9 @@ export default function Inicio() {
   const used = kits.data?.reduce((n, k) => n + k.tags_used, 0) ?? 0;
   const total = kits.data?.reduce((n, k) => n + k.tags_total, 0) ?? 0;
   const free = total - used;  // etiquetas todavia sin equipo
+  // Separa lo que todavia se esta leyendo de lo que ya necesita tu revision.
+  const reading = pending.data?.filter((a) => a.status === "registrado" || a.status === "leido").length ?? 0;
+  const attention = pending.data?.filter((a) => ["por_confirmar", "necesita_foto", "faltan_datos"].includes(a.status)).length ?? 0;
   return (
     <Shell title="NidoGuard" nav="inicio">
       <div className="absolute right-4 top-6"><UserButton /></div>
@@ -42,11 +45,16 @@ export default function Inicio() {
           <p className="flex items-baseline gap-2"><span className="text-5xl font-extrabold leading-none tracking-[-1.5px]">{total ? used : 0}</span><span className="text-sm font-semibold opacity-90">{total ? `de ${total} usadas` : "sin kit todavía"}</span></p>
         </div>
         <div className="g flex flex-1 flex-col justify-between rounded-[30px] p-[18px]">
-          <p className="text-sm font-semibold text-muted">Por confirmar</p>
-          <p className="text-5xl font-extrabold leading-none tracking-[-1.5px] text-navy">{pending.data?.length ?? 0}</p>
-          <p className="text-sm font-semibold text-muted">equipos</p>
+          <p className="text-sm font-semibold text-muted">Por revisar</p>
+          <p className="text-5xl font-extrabold leading-none tracking-[-1.5px] text-navy">{attention}</p>
+          <p className="text-sm font-semibold text-muted">{reading ? `${reading} leyendo` : "equipos"}</p>
         </div>
       </div>
+      {reading > 0 && (
+        <p className="g mt-3 rounded-[22px] px-4 py-3 text-sm text-navy">
+          <b>{reading === 1 ? "Un equipo" : `${reading} equipos`}</b> {reading === 1 ? "se está leyendo" : "se están leyendo"}. Cuando termine, aparecerá en <b>Por revisar</b>. Recarga la pantalla para ver el avance.
+        </p>
+      )}
       <div className="mt-3 flex flex-col gap-3">
         {total === 0 && (
           <Link href="/k/activar" className="btn btn-copper w-full">Activar tu kit</Link>
@@ -57,12 +65,12 @@ export default function Inicio() {
         {total > 0 && <p className="text-center text-xs text-muted">Escanea la etiqueta que va pegada al equipo, no la hoja del kit.</p>}
         {total > 0 && <Link href="/k/activar" className="btn btn-ghost w-full">Activar otro kit</Link>}
       </div>
-      {!!pending.data?.length && (
+      {attention > 0 && (
         <>
           <h2 className="mt-6 text-[19px] font-extrabold">Necesitan tu atención</h2>
           <Link href="/por-confirmar" className="g mt-2.5 flex h-[62px] items-center gap-3 rounded-[22px] px-3.5">
             <span className="icon-tile"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg></span>
-            <span className="min-w-0 flex-1"><span className="block text-[15px] font-bold leading-tight">{pending.data.length} equipo(s) por confirmar</span><span className="block text-[12.5px] text-muted">Ya leímos sus datos</span></span>
+            <span className="min-w-0 flex-1"><span className="block text-[15px] font-bold leading-tight">{attention} equipo(s) por revisar</span><span className="block text-[12.5px] text-muted">Ya leímos sus datos</span></span>
             <span className="chip">Revisar</span>
           </Link>
         </>
