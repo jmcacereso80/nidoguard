@@ -142,7 +142,8 @@ def test_agendar_pide_permiso_y_revela_el_nombre_solo_al_confirmar(caso, db, mon
     monkeypatch.setattr(F, "utcnow", lambda: datetime.now(timezone.utc) + timedelta(days=1))
     s2 = c.get(f"/service-requests/{r['id']}").json()["appointment"]
     assert s2["status"] == "confirmada" and s2["technician_name"] and s2["starts_at"]
-    assert "phone" not in json.dumps(s2).lower()
+    assert s2["technician_phone"] is None  # sin compartir su teléfono, tampoco se le da el del técnico
+    assert "+52" not in json.dumps(s2)
 
 
 def test_visita_realizada_queda_en_el_historial(caso, db):

@@ -171,7 +171,7 @@ def agendada(c, db, tokens, enviados, ext, quote_n=1):
     analizada(c, quote_n)
     r = c.get(f"/service-requests/{r['id']}").json()
     c.put("/me/phone", json={"phone": "55 1234 5678"})
-    s = c.post(f"/service-requests/{r['id']}/schedule", json={"quote_id": r["quotes"][0]["id"], "slot_index": 0, "consent": True, "share_phone": True})
+    s = c.post(f"/service-requests/{r['id']}/schedule", json={"quote_id": r["quotes"][0]["id"], "slot_index": 0, "consent": True, "share_phone": True, "access_notes": "Caseta: registrar INE"})
     assert s.status_code == 200, s.text
     usar(ext)
     return r["id"], s.json()
@@ -183,8 +183,9 @@ def test_la_direccion_solo_sale_en_la_llamada_de_agendar(real, db):
     antes, agenda = enviados[:-1], enviados[-1]
     assert "Gabriel Mancera" not in json.dumps(antes)
     v = agenda["retell_llm_dynamic_variables"]
-    assert v["tipo"] == "agendar" and "Gabriel Mancera" in v["direccion"] and v["telefono_cliente"] == "+525512345678" and v["franja_elegida"]
+    assert v["tipo"] == "agendar" and "Gabriel Mancera" in v["direccion"] and v["telefono_cliente"] == "+525512345678" and v["franja_elegida"] and v["acceso"] == "Caseta: registrar INE"
     assert s["appointment"]["status"] == "por_confirmar" and s["appointment"]["technician_name"] is None
+    assert s["appointment"]["technician_phone"] is None  # el telefono del tecnico solo se ve con la visita confirmada
 
 
 def test_confirma_revela_nombre_y_marca_recordatorio_el_dia_anterior(real, db):
@@ -193,7 +194,7 @@ def test_confirma_revela_nombre_y_marca_recordatorio_el_dia_anterior(real, db):
     rid, s = agendada(c, db, tokens, enviados, Ext(appt=AppointmentDraft(outcome="confirma", date=d, start_hour=10, end_hour=12, person_name="Luis Pérez")))
     assert analizada(c, len(enviados)).json()["result"] == "completada"
     ap = c.get(f"/service-requests/{rid}").json()["appointment"]
-    assert ap["status"] == "confirmada" and ap["technician_name"] == "Luis" and ap["starts_at"].startswith(d)  # quien irá, solo el nombre de pila
+    assert ap["status"] == "confirmada" and ap["technician_name"] == "Luis" and ap["starts_at"].startswith(d) and ap["technician_phone"] and ap["access_notes"]  # quien irá, solo el nombre de pila
     row = db.scalar(select(ServiceAppointment).where(ServiceAppointment.id == uuid.UUID(ap["id"])))
     inicio = row.starts_at
     n = len(enviados)

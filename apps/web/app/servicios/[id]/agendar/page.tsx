@@ -21,9 +21,9 @@ function Form({ id }: { id: string }) {
   const m = useRequestAction(id);
   const q = useQuery({ queryKey: ["svc-quote", id, qid], queryFn: () => api<{ quote: Quote; scope_text: string | null; equipment_label: string | null }>(`/service-requests/${id}/quotes/${qid}`), enabled: !!qid });
   const me = useMe().data?.user; const tiene = !!me?.phone;
-  const [slot, setSlot] = useState(0); const [ok, setOk] = useState(true); const [tel, setTel] = useState(true);
+  const [slot, setSlot] = useState(0); const [ok, setOk] = useState(true); const [tel, setTel] = useState(true); const [acceso, setAcceso] = useState("");
   const d = q.data;
-  const pedir = () => m.mutate({ path: "/service-requests/{id}/schedule", body: { quote_id: qid, slot_index: slot, consent: ok, share_phone: tiene && tel } }, { onSuccess: () => router.push(`/servicios/${id}`) });
+  const pedir = () => m.mutate({ path: "/service-requests/{id}/schedule", body: { quote_id: qid, slot_index: slot, consent: ok, share_phone: tiene && tel, access_notes: acceso.trim() || null } }, { onSuccess: () => router.push(`/servicios/${id}`) });
   return (
     <Shell title="Agendar visita" subtitle={d ? `${d.quote.label} · ${priceLabel(d.quote)}` : undefined} back={`/servicios/${id}/cotizacion/${qid}`} nav="servicios">
       {d && (<>
@@ -45,9 +45,13 @@ function Form({ id }: { id: string }) {
           <Compartido icon="wrench" text="El equipo y el trabajo acordado" ok /><Hr />
           <Compartido icon="phone" text={tiene && tel ? "Tu teléfono, cuando confirme la visita" : "Tu teléfono no se comparte"} ok={tiene && tel} />
         </div>
+        <Label>¿Cómo se entra? (opcional)</Label>
+        <textarea value={acceso} maxLength={300} rows={2} onChange={(e) => setAcceso(e.target.value)} aria-label="Cómo se entra"
+          placeholder="Ej. Caseta: registrar INE. Torre B, depto 402." className="field w-full resize-none" />
+        <p className="mx-1.5 mt-1.5 text-[12.5px] leading-snug text-muted">Se lo decimos al técnico junto con tu dirección. Si te piden identificación o un pase, se lo mandas tú directo por su teléfono; NidoGuard no guarda documentos.</p>
         <div className="mt-3"><NoCobro /></div>
         <ConsentCheck checked={ok} onChange={setOk}>Autorizo dar mi dirección al técnico cuando confirme la visita.</ConsentCheck>
-        {tiene ? <ConsentCheck checked={tel} onChange={setTel}>Comparto mi teléfono con el técnico cuando confirme, para que pueda avisarme si llega o se retrasa.</ConsentCheck>
+        {tiene ? <ConsentCheck checked={tel} onChange={setTel}>Comparto mi teléfono con el técnico cuando confirme, para coordinar el acceso y que me avise si llega o se retrasa. Él me comparte el suyo.</ConsentCheck>
           : <p className="mx-1.5 mt-2 text-[12.5px] leading-snug text-muted">Sin tu teléfono, el técnico no podrá avisarte si se retrasa. <Link href={`/hogar/datos?volver=${encodeURIComponent(`/servicios/${id}/agendar?q=${qid}`)}`} className="font-extrabold underline">Agregar mi teléfono</Link></p>}
         <ErrorNote text={m.isError ? (m.error as Error).message : null} />
         <Actions><button type="button" className="btn" disabled={m.isPending || !ok} onClick={pedir}><Icon name="check" size={19} stroke={2.4} />Pedir esta visita</button>

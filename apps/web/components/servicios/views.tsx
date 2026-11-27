@@ -324,6 +324,13 @@ export function Visita(p: P) {
             {a.visit_fee ? `, más ${money(a.visit_fee)} de visita` : ", sin cargo por visita"}.{a.warranty_days ? ` Garantía de ${a.warranty_days} días` : ""}{a.invoice ? " y factura." : "."}</p>
         </div>
       )}
+      {confirmada && (ap.technician_phone || ap.access_notes) && (
+        <div className="g mt-4 rounded-[26px] p-4">
+          {ap.technician_phone && <a href={`tel:${ap.technician_phone}`} className="btn btn-ghost w-full"><Icon name="phone" size={19} />Llamar a {ap.technician_name ?? "tu técnico"}</a>}
+          {ap.technician_phone && <p className="mt-2 text-[12.5px] leading-snug text-muted">Para coordinar el acceso o si necesita algún documento. Se lo mandas tú directo.</p>}
+          {ap.access_notes && <p className="mt-3 border-t border-navy/10 pt-3 text-[13.5px] leading-relaxed"><b>Acceso que le dimos:</b> {ap.access_notes}</p>}
+        </div>
+      )}
       {ap.status === "por_reprogramar" && ap.proposed_slot && (
         <div className="mt-4">
           <Callout icon="clock"><b>El técnico propone otro horario:</b> {longDay(`${ap.proposed_slot.date}T12:00:00-06:00`)}{ap.proposed_slot.start_hour != null ? `, desde las ${ap.proposed_slot.start_hour}:00` : ""}.</Callout>

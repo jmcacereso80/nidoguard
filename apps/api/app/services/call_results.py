@@ -73,6 +73,8 @@ def _ctx(db: Session, req: ServiceRequest, call: ServiceCall) -> tuple[CallConte
             user = db.get(User, req.created_by) if req.created_by else None
             extra["direccion"] = prop.address if prop else None
             extra["nombre"] = given_name(user)
+            if ap and ap.access_notes:
+                extra["acceso"] = ap.access_notes
             if ap and ap.share_phone and user and user.phone_e164:
                 extra["telefono_cliente"] = user.phone_e164
         else:

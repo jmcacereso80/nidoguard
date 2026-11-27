@@ -18,7 +18,7 @@ export type Appointment = {
   id: string; kind: "tecnico" | "fabricante"; status: "por_confirmar" | "confirmada" | "por_reprogramar" | "cancelada" | "realizada";
   location_type: "domicilio" | "centro"; center_name: string | null; center_address: string | null; folio: string | null; bring: string[];
   starts_at: string | null; ends_at: string | null; requested_slot: Slot | null; registered_by_user: boolean; final_cost: number | null;
-  technician_name: string | null; contact_shared: boolean; proposed_slot: { date: string; start_hour: number | null; end_hour: number | null } | null; proposal_round: number;
+  technician_name: string | null; technician_phone: string | null; access_notes: string | null; contact_shared: boolean; proposed_slot: { date: string; start_hour: number | null; end_hour: number | null } | null; proposal_round: number;
   agreed: { label: string; scope: string | null; price_min: number | null; price_max: number | null; price_type: PriceType | null; visit_fee: number | null;
             warranty_days: number | null; invoice: boolean | null; rating: number | null; reviews: number | null; slots: Slot[] } | null;
 };

@@ -52,7 +52,7 @@ def dynamic_variables(ctx: CallContext) -> dict[str, str]:
     v = {"tipo": ctx.kind, "equipo": ctx.equipment, "trabajo": ctx.service or "", "sintoma": ctx.symptom or "",
          "urgencia": ctx.urgency or "", "zona": ctx.zone, "negocio": ctx.business_name or ""}
     for k, val in ctx.extra.items():
-        if k in {"marca", "modelo", "serie", "fecha_compra", "titular", "direccion", "telefono_titular", "franja_elegida", "precio", "nombre", "telefono_cliente"} and val:
+        if k in {"marca", "modelo", "serie", "fecha_compra", "titular", "direccion", "telefono_titular", "franja_elegida", "precio", "nombre", "telefono_cliente", "acceso"} and val:
             v[k] = str(val)
     return v
 

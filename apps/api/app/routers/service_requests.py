@@ -41,6 +41,7 @@ class ScheduleIn(BaseModel):
     slot_index: int = 0
     consent: bool = False
     share_phone: bool = False
+    access_notes: str | None = Field(default=None, max_length=300)
 
 
 class RespondIn(BaseModel):
@@ -171,7 +172,7 @@ def get_quote(request_id: uuid.UUID, quote_id: uuid.UUID, org: Organization = De
 def schedule(request_id: uuid.UUID, body: ScheduleIn, user: User = Depends(current_user), org: Organization = Depends(current_org),
              db: Session = Depends(get_db)):
     r = _req(db, org, request_id)
-    F.schedule(db, r, user, org, body.quote_id, body.slot_index, body.consent, body.share_phone, get_voice())
+    F.schedule(db, r, user, org, body.quote_id, body.slot_index, body.consent, body.share_phone, get_voice(), body.access_notes)
     return F.request_out(db, r)
 
 

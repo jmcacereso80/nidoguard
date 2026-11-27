@@ -334,7 +334,7 @@ def _confirm_fake_appointment(db, req, ap, now):
 
 
 # ------------------------------------------------------------------ agendar con un tecnico
-def schedule(db: Session, req: ServiceRequest, user, org, quote_id, slot_index: int, consent: bool, share_phone: bool = False, voice: VoiceCaller | None = None) -> ServiceAppointment:
+def schedule(db: Session, req: ServiceRequest, user, org, quote_id, slot_index: int, consent: bool, share_phone: bool = False, voice: VoiceCaller | None = None, access_notes: str | None = None) -> ServiceAppointment:
     if req.status not in ("lista", "buscando"):
         raise HTTPException(409, "Esta solicitud no se puede agendar ahora.")
     q = db.scalar(select(ServiceQuote).where(ServiceQuote.id == quote_id, ServiceQuote.request_id == req.id))
@@ -348,7 +348,8 @@ def schedule(db: Session, req: ServiceRequest, user, org, quote_id, slot_index: 
         raise HTTPException(422, "Agrega tu teléfono para compartirlo con el técnico.")
     _consent(db, user, org, req, "compartir_datos_para_visita")
     ap = ServiceAppointment(request_id=req.id, quote_id=q.id, provider_id=q.provider_id, provider_kind="tecnico", location_type="domicilio",
-                            requested_slot=q.availability[slot_index], status="por_confirmar", share_phone=share_phone)
+                            requested_slot=q.availability[slot_index], status="por_confirmar", share_phone=share_phone,
+                            access_notes=(access_notes or "").strip()[:300] or None)
     db.add(ap)
     req.status, req.chosen_quote_id = "agendada", q.id
     for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.status == "en_cola")):
@@ -416,14 +417,17 @@ def appointment_out(db: Session, ap: ServiceAppointment) -> dict:
            "center_name": ap.center_name, "center_address": ap.center_address, "folio": ap.folio, "bring": ap.bring,
            "starts_at": ap.starts_at.isoformat() if ap.starts_at else None, "ends_at": ap.ends_at.isoformat() if ap.ends_at else None,
            "requested_slot": ap.requested_slot, "proposed_slot": ap.proposed_slot, "proposal_round": ap.proposal_round, "registered_by_user": ap.registered_by_user, "contact_shared": ap.share_phone, "final_cost": ap.final_cost,
-           "technician_name": None, "agreed": None}
+           "technician_name": None, "technician_phone": None, "access_notes": ap.access_notes, "agreed": None}
     if ap.quote_id:
         q = db.get(ServiceQuote, ap.quote_id)
         out["agreed"] = {"label": q.label, "scope": q.scope_quoted, "price_min": q.price_min, "price_max": q.price_max,
                          "price_type": q.price_type, "visit_fee": q.visit_fee, "warranty_days": q.warranty_days, "invoice": q.invoice,
                          "rating": q.rating, "reviews": q.reviews, "slots": q.availability}
         if ap.status in ("confirmada", "realizada") and ap.provider_id:
-            out["technician_name"] = ap.visit_person or db.get(ServiceProvider, ap.provider_id).name  # solo con la visita confirmada
+            prov = db.get(ServiceProvider, ap.provider_id)
+            out["technician_name"] = ap.visit_person or prov.name  # solo con la visita confirmada
+            if ap.share_phone and prov.phone_e164:  # reciprocidad: si la persona dio su telefono, ve el del tecnico
+                out["technician_phone"] = prov.phone_e164
     return out
 
 

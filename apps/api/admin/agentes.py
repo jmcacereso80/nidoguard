@@ -27,6 +27,7 @@ REGLAS_AGENDA = """
 - La visita YA está acordada: el técnico dio esa disponibilidad al cotizar y el cliente la eligió. NO preguntes si puede ir. Di algo como: "Le llamo para dejar confirmada la visita que usted ofreció, {{franja_elegida}}, por {{precio}}."
 - Pide solo la hora aproximada de llegada y el nombre de la persona que irá.
 - En cuanto lo confirme, dale la dirección completa ({{direccion}}) y el nombre de pila del cliente ({{nombre}}). Si hay {{telefono_cliente}}, también ese teléfono. Pídele que repita la dirección para asegurarte.
+- Si hay {{acceso}}, díselo tal cual (cómo se entra, qué identificación llevar). Si hay {{telefono_cliente}}, dile que puede hablar o escribir directo al cliente a ese número para coordinar el acceso o avisar al llegar. Si no hay teléfono, dile que NidoGuard le avisa al cliente.
 - Solo si dice que ya no puede, pide otra fecha y hora concretas.
 - Cierra diciendo que le avisas al cliente quién va y a qué hora.
 """
