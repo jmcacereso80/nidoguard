@@ -97,6 +97,8 @@ export function FabricanteDatos({ r, act, busy, err }: P) {
   const [ok, setOk] = useState(true);
   const guardado = useMe().data?.user.phone ?? "";
   const [phone, setPhone] = useState("");
+  const tecleado = phone.replace(/\D/g, "").length >= 10;
+  const tengoTel = tecleado || !!guardado;  // si ya guardó su teléfono en Mi casa, no hace falta escribirlo otra vez
   const dato = (icon: string, k: string, v: string | null) => v ? <><KV icon={icon} k={k} v={v} /><Hr /></> : null;
   return (
     <div>
@@ -115,14 +117,15 @@ export function FabricanteDatos({ r, act, busy, err }: P) {
         {dato("tag", "Número de serie", m.serial)}
         {dato("shieldok", "Garantía hasta", m.warranty_ends_on ? shortDay(m.warranty_ends_on) : null)}
         <div className="py-3"><label htmlFor="tel" className="text-[12.5px] text-muted">Tu teléfono (el fabricante lo pide para agendar)</label>
-          <input id="tel" inputMode="tel" autoComplete="tel" placeholder={guardado ? "Usaremos el que guardaste" : "55 1234 5678"} value={phone} onChange={(e) => setPhone(e.target.value)} className="field mt-1" /></div>
+          <input id="tel" inputMode="tel" autoComplete="tel" placeholder={guardado ? "Usaremos el que guardaste" : "55 1234 5678"} value={phone} onChange={(e) => setPhone(e.target.value)} className="field mt-1" />
+          {guardado && <p className="mx-1.5 mt-1.5 text-[12.5px] text-muted">Ya lo tenemos guardado en <Link href="/hogar/datos" className="font-extrabold underline">Mi casa</Link>. Escribe otro solo si quieres cambiarlo.</p>}</div>
       </div>
       <ConsentCheck checked={ok} onChange={setOk}>Autorizo que NidoGuard llame al fabricante y le dé estos datos para agendar mi servicio. La llamada se graba.</ConsentCheck>
       <div className="mt-2.5"><NoCobro text={NO_COBRO_FABRICANTE} /></div>
       <ErrorNote text={err} />
       <Actions>
-        <Btn disabled={busy || !ok || phone.replace(/\D/g, "").length < 10} onClick={() => act("/service-requests/{id}/start", { consent: ok, phone })}><Icon name="phone" size={19} stroke={2.2} />Agendar con el fabricante</Btn>
-        <TextLink onClick={() => act("/service-requests/{id}/scope", { route: "tecnico" })}>Prefiero un técnico a domicilio</TextLink>
+        <Btn disabled={busy || !ok || !tengoTel} onClick={() => act("/service-requests/{id}/start", { consent: ok, phone: tecleado ? phone : null })}><Icon name="phone" size={19} stroke={2.2} />Agendar con el fabricante</Btn>
+        <button type="button" disabled={busy} onClick={() => act("/service-requests/{id}/scope", { route: "tecnico" })} className="btn btn-copper w-full"><Icon name="wrench" size={19} stroke={2.2} />Cotizar con técnicos a domicilio</button>
         <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar solicitud</TextLink>
       </Actions>
     </div>
