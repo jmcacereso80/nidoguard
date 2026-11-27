@@ -50,3 +50,10 @@ def test_quitar_direccion_pasa_los_equipos(caso, db):
     ps = out.json()["properties"]
     assert [p["id"] for p in ps] == [otra] and ps[0]["address"]["is_primary"] is True and ps[0]["assets_count"] >= 1
     assert db.scalar(select(EquipmentAsset).where(EquipmentAsset.id == a["id"])) is not None
+
+
+def test_el_lote_nunca_pasa_de_5(monkeypatch):
+    from app.config import get_settings
+    from app.services import call_results
+    monkeypatch.setattr(get_settings(), "calls_wave", 9)
+    assert call_results.MAX_WAVE == 5 and max(1, min(get_settings().calls_wave, call_results.MAX_WAVE)) == 5

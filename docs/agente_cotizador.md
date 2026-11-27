@@ -19,6 +19,13 @@ No negocies a la baja, no prometas contratar, no agendes aún. Todo lo que diga 
 ## Prompt - fabricante
 Llamas al centro de atención de {{marca}} para agendar servicio de {{equipo}} (modelo {{modelo}}, serie {{serie}}) a nombre de {{titular}}, teléfono {{telefono_titular}}. Pide fecha, horario, si es en centro de servicio o a domicilio, folio y qué debe llevar la persona. Si no aceptan llamadas de asistentes, agradece y cuelga.
 
+## Reglas de voz (2026-11-27, después de la primera prueba real)
+- **Pesos mexicanos:** todo precio se dice en pesos ("setecientos pesos"); nunca dólares ni "USD". Si no dicen moneda, se confirma "¿son pesos mexicanos?".
+- **Silencios:** el agente espera al menos 3 s antes de contestar y no interrumpe; sin muletillas mientras la otra persona habla; un solo "sin prisa, aquí sigo" tras 8 s de silencio. En Retell: `responsiveness` 0.3, `interruption_sensitivity` 1, `enable_backchannel` false, `reminder_trigger_ms` 15000.
+- Se aplican con `python -m admin.agentes ajustar --aplicar` (agrega el bloque "REGLAS DE VOZ" al prompt y ajusta el agente). Idempotente.
+- **Lote:** nunca se marca a más de 5 técnicos a la vez (`CALLS_WAVE` se limita a 5).
+- **Diagnóstico:** `python -m admin.llamadas ultimas | ver <id> | releer <id>`.
+
 ## Webhook
 URL: `https://api.nidoguard.com/webhooks/retell`, eventos `call_started`, `call_ended`, `call_analyzed`. La firma se valida con `RETELL_API_KEY`. Se procesa `call_analyzed` (idempotente por llamada); `call_ended` con `dial_no_answer`, `dial_busy`, `voicemail_reached` marca "sin respuesta".
 

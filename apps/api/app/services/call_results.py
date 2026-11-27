@@ -1,5 +1,6 @@
 """Llamadas reales: marcar en oleadas y con reglas, recibir lo que paso (webhook), guardar cotizaciones y citas, recordatorios y cierre.
 Con voz falsa nada de esto marca: lo hace advance_fake. `tick` lo corre Prefect (o `python -m admin.tick`) cada minuto."""
+import logging
 import uuid
 from .people import given_name
 from datetime import date, datetime, timedelta
@@ -14,6 +15,8 @@ from . import call_policy
 from .manufacturers import verified_line
 from .quote_extractor import AppointmentDraft, Extractor, ManufacturerDraft, QuoteDraft, clean_excerpt, scrub
 from .voice import CallContext, VoiceCaller
+log = logging.getLogger("nidoguard.llamadas")
+MAX_WAVE = 5  # nunca se marca a mas de 5 tecnicos a la vez (un lote)
 
 FINAL = ("completada", "sin_respuesta", "rechazo", "error", "omitida", "cancelada")
 NO_ANSWER = {"dial_failed", "dial_no_answer", "dial_busy", "voicemail_reached", "machine_detected", "invalid_destination", "telephony_provider_permission_denied"}
@@ -116,7 +119,7 @@ def _dial_search(db, req, voice, now):
         for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.status == "en_cola")):
             c.status = "cancelada"
         return
-    wave = get_settings().calls_wave
+    wave = max(1, min(get_settings().calls_wave, MAX_WAVE))
     calls = list(db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.purpose.in_(("cotizar", "fabricante")))
                             .order_by(ServiceCall.created_at, ServiceCall.label)))
     quotes = db.scalar(select(func.count()).select_from(ServiceQuote).where(ServiceQuote.request_id == req.id)) or 0
@@ -429,9 +432,11 @@ def handle_event(db: Session, payload: dict, extractor: Extractor, voice: VoiceC
                 else:
                     apply_quote(db, req, call, extractor.quote(text, req.scope_text or "", today), today)
             except Exception:
+                log.exception("No se pudo leer la llamada %s (%s): la llamada queda en error", call.id, call.purpose)
                 call.status = "error"
     else:
         return "guardada"
+    log.info("Llamada %s (%s) -> %s; duracion %ss; transcripcion %s caracteres", call.id, call.purpose, call.status, call.duration_s, len(call.transcript or ""))
     finalize(db, req)
     dispatch(db, req, voice)
     db.commit()
