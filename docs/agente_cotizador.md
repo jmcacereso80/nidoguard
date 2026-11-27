@@ -21,7 +21,8 @@ Llamas al centro de atención de {{marca}} para agendar servicio de {{equipo}} (
 
 ## Reglas de voz (2026-11-27, después de la primera prueba real)
 - **Pesos mexicanos:** todo precio se dice en pesos ("setecientos pesos"); nunca dólares ni "USD". Si no dicen moneda, se confirma "¿son pesos mexicanos?".
-- **Silencios:** el agente espera al menos 3 s antes de contestar y no interrumpe; sin muletillas mientras la otra persona habla; un solo "sin prisa, aquí sigo" tras 8 s de silencio. En Retell: `responsiveness` 0.3, `interruption_sensitivity` 1, `enable_backchannel` false, `reminder_trigger_ms` 15000.
+- **Silencios:** el agente espera unos 2 s antes de contestar (antes 3 s, 30% menos) y no interrumpe; sin muletillas mientras la otra persona habla; un solo "sin prisa, aquí sigo" tras 6 s de silencio. En Retell: `responsiveness` 0.4, `interruption_sensitivity` 1, `enable_backchannel` false, `reminder_trigger_ms` 10500.
+- **Llamada de cita:** la visita ya viene acordada (el técnico dio esa disponibilidad al cotizar y la persona la eligió). El agente NO pregunta si puede ir: la deja confirmada, pide hora aproximada y nombre de quien irá, y entonces da la dirección exacta y el nombre de pila (y el teléfono si la persona lo autorizó). La persona ve el nombre de pila de quien irá (`visit_person`).
 - Se aplican con `python -m admin.agentes ajustar --aplicar` (agrega el bloque "REGLAS DE VOZ" al prompt y ajusta el agente). Idempotente.
 - **Lote:** nunca se marca a más de 5 técnicos a la vez (`CALLS_WAVE` se limita a 5).
 - **Diagnóstico:** `python -m admin.llamadas ultimas | ver <id> | releer <id>`.

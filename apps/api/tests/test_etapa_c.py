@@ -190,10 +190,10 @@ def test_la_direccion_solo_sale_en_la_llamada_de_agendar(real, db):
 def test_confirma_revela_nombre_y_marca_recordatorio_el_dia_anterior(real, db):
     c, tokens, enviados = real
     d = dia(3)
-    rid, s = agendada(c, db, tokens, enviados, Ext(appt=AppointmentDraft(outcome="confirma", date=d, start_hour=10, end_hour=12)))
+    rid, s = agendada(c, db, tokens, enviados, Ext(appt=AppointmentDraft(outcome="confirma", date=d, start_hour=10, end_hour=12, person_name="Luis Pérez")))
     assert analizada(c, len(enviados)).json()["result"] == "completada"
     ap = c.get(f"/service-requests/{rid}").json()["appointment"]
-    assert ap["status"] == "confirmada" and ap["technician_name"] and ap["starts_at"].startswith(d)
+    assert ap["status"] == "confirmada" and ap["technician_name"] == "Luis" and ap["starts_at"].startswith(d)  # quien irá, solo el nombre de pila
     row = db.scalar(select(ServiceAppointment).where(ServiceAppointment.id == uuid.UUID(ap["id"])))
     inicio = row.starts_at
     n = len(enviados)

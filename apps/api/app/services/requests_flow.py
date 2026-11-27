@@ -423,7 +423,7 @@ def appointment_out(db: Session, ap: ServiceAppointment) -> dict:
                          "price_type": q.price_type, "visit_fee": q.visit_fee, "warranty_days": q.warranty_days, "invoice": q.invoice,
                          "rating": q.rating, "reviews": q.reviews, "slots": q.availability}
         if ap.status in ("confirmada", "realizada") and ap.provider_id:
-            out["technician_name"] = db.get(ServiceProvider, ap.provider_id).name  # solo con la visita confirmada
+            out["technician_name"] = ap.visit_person or db.get(ServiceProvider, ap.provider_id).name  # solo con la visita confirmada
     return out
 
 

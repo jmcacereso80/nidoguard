@@ -469,6 +469,7 @@ class ServiceAppointment(Base):
     proposed_slot: Mapped[dict | None] = mapped_column(JSONB)  # {date, start_hour, end_hour}
     reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     share_phone: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    visit_person: Mapped[str | None] = mapped_column(String(120))  # nombre de pila de quien ira a la visita (lo dice el tecnico al confirmar)
     address_shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     final_cost: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = now()

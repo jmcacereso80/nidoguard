@@ -33,3 +33,7 @@ Nuevo: escanea QR de la hoja → "Crea tu cuenta para activar tu kit" → kit re
 - **Nombre de pila al técnico = primera palabra de "nombres";** los apellidos solo van al fabricante cuando agenda garantía.
 - **Dirección principal:** una por hogar; se usa si no se elige otra. Al eliminar una dirección, sus lugares y equipos pasan a otra (nunca se borran).
 - **Teléfono:** se comparte con el técnico solo si la persona lo permite en cada cita.
+
+## Llamada de cita (2026-11-27)
+- **La visita ya viene acordada:** la llamada de agendar confirma, no pregunta si el técnico puede ir. Solo pide hora aproximada y quién irá; después le da la dirección exacta y el nombre de pila de la persona.
+- **La persona ve quién irá:** nombre de pila que dice el técnico al confirmar (migración 0014, `visit_person`).

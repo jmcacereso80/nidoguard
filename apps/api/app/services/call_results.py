@@ -276,6 +276,9 @@ def apply_appointment(db: Session, req: ServiceRequest, call: ServiceCall, ap: S
             return
         ap.starts_at, ap.ends_at = _hours(d, draft.start_hour if ok_day else None, draft.end_hour if ok_day else None, ap.requested_slot)
         ap.status, ap.address_shared_at = "confirmada", _now()
+        who = (scrub(draft.person_name) or "").strip().split(" ")[0][:60] if draft.person_name else ""
+        if who:
+            ap.visit_person = who
         ap.proposed_slot = None
     elif draft.outcome == "propone_otra" and ok_day and ap.proposal_round < MAX_ROUNDS:
         ap.proposed_slot = {"date": day.isoformat(), "start_hour": draft.start_hour, "end_hour": draft.end_hour}

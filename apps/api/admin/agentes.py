@@ -11,20 +11,30 @@ from app.config import get_settings
 
 API = "https://api.retellai.com"
 MARCA = "## REGLAS DE VOZ (NidoGuard)"
+MARCA_CITA = "## REGLAS DE LA CITA (NidoGuard)"
 REGLAS = f"""
 
 {MARCA}
 - Todos los precios son en PESOS MEXICANOS. Di las cantidades completas en español: "setecientos pesos", "mil doscientos pesos". Nunca digas "dólares", "USD" ni leas el signo $ en inglés. Si la otra persona da un monto sin moneda, confirma: "¿Son pesos mexicanos?".
-- Deja hablar. Una pausa corta no significa que la otra persona terminó: espera al menos 3 segundos de silencio antes de responder. Nunca interrumpas ni completes sus frases.
-- Si la otra persona está pensando o buscando un dato, no llenes el silencio. Si pasan más de 8 segundos, di una sola vez: "Sin prisa, aquí sigo."
+- Deja hablar. Una pausa corta no significa que la otra persona terminó: espera unos 2 segundos de silencio antes de responder. Nunca interrumpas ni completes sus frases.
+- Si la otra persona está pensando o buscando un dato, no llenes el silencio. Si pasan más de 6 segundos, di una sola vez: "Sin prisa, aquí sigo."
 - Haz una pregunta a la vez y espera la respuesta completa.
 - No uses muletillas ("ajá", "mjm") mientras la otra persona habla.
 """
+REGLAS_AGENDA = """
+
+## REGLAS DE LA CITA (NidoGuard)
+- La visita YA está acordada: el técnico dio esa disponibilidad al cotizar y el cliente la eligió. NO preguntes si puede ir. Di algo como: "Le llamo para dejar confirmada la visita que usted ofreció, {{franja_elegida}}, por {{precio}}."
+- Pide solo la hora aproximada de llegada y el nombre de la persona que irá.
+- En cuanto lo confirme, dale la dirección completa ({{direccion}}) y el nombre de pila del cliente ({{nombre}}). Si hay {{telefono_cliente}}, también ese teléfono. Pídele que repita la dirección para asegurarte.
+- Solo si dice que ya no puede, pide otra fecha y hora concretas.
+- Cierra diciendo que le avisas al cliente quién va y a qué hora.
+"""
 AJUSTES = {
-    "responsiveness": 0.3,            # espera mas antes de contestar (0 a 1; menos = mas paciente)
+    "responsiveness": 0.4,            # espera antes de contestar (0 a 1; menos = mas paciente). 30% mas rapido que 0.3
     "interruption_sensitivity": 1,    # si la persona habla encima, el agente se calla
     "enable_backchannel": False,      # sin "ajá" mientras habla
-    "reminder_trigger_ms": 15000,     # no lo "despierta" antes de 15 s de silencio
+    "reminder_trigger_ms": 10500,     # no lo "despierta" antes de ~10 s de silencio (30% menos que 15 s)
     "reminder_max_count": 1,
 }
 
@@ -48,14 +58,17 @@ def main():
         prompt = None
         if llm_id:
             l = httpx.get(f"{API}/get-retell-llm/{llm_id}", headers=h, timeout=20); l.raise_for_status(); prompt = l.json().get("general_prompt") or ""
-            print(f"  prompt: {'ya trae las reglas de voz' if MARCA in prompt else 'se agregarán las reglas de voz (pesos y paciencia)'}")
+            print(f"  prompt: se pondrán las reglas de voz (pesos y paciencia){' y las de la cita' if aid == s.retell_agent_id_agenda and aid != s.retell_agent_id else ''}")
         else:
             print("  Este agente no usa Retell LLM: agrega las reglas de voz a mano (están en admin/agentes.py).")
         if not a.aplicar:
             continue
         httpx.patch(f"{API}/update-agent/{aid}", json=AJUSTES, headers=h, timeout=20).raise_for_status()
-        if llm_id and MARCA not in (prompt or ""):
-            httpx.patch(f"{API}/update-retell-llm/{llm_id}", json={"general_prompt": (prompt or "") + REGLAS}, headers=h, timeout=20).raise_for_status()
+        if llm_id:
+            base = (prompt or "").split(MARCA)[0].split(MARCA_CITA)[0].rstrip()  # quita nuestros bloques anteriores y los vuelve a poner (asi se pueden actualizar)
+            nuevo = base + REGLAS + (REGLAS_AGENDA if aid == s.retell_agent_id_agenda and aid != s.retell_agent_id else "")
+            if nuevo != (prompt or ""):
+                httpx.patch(f"{API}/update-retell-llm/{llm_id}", json={"general_prompt": nuevo}, headers=h, timeout=20).raise_for_status()
         print("  aplicado.")
     if not a.aplicar:
         print("\nNo cambié nada. Corre con --aplicar para aplicarlo.")
