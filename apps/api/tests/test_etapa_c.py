@@ -325,3 +325,26 @@ def test_garantia_vigente_y_linea_verificada_manda_al_fabricante(caso, db):
     assert pedir(c, a)["route"] == "tecnico"  # sin línea verificada sigue por técnicos
     linea(db, "verificada")
     assert pedir(c, a)["route"] == "fabricante"
+
+
+def test_extractor_reintenta_en_modo_automatico_si_el_modelo_no_acepta_forzar(monkeypatch):
+    """Sonnet 5.5 rechaza tool_choice forzado: el extractor debe reintentar en auto, no fallar la llamada."""
+    from types import SimpleNamespace
+    from app.services import quote_extractor as qe
+    llamadas = []
+    class Cliente:
+        class messages:
+            @staticmethod
+            def create(**kw):
+                llamadas.append(kw["tool_choice"]["type"])
+                if kw["tool_choice"]["type"] == "tool":
+                    raise RuntimeError('tool_choice: type "tool" and "any" are not supported for this model.')
+                return SimpleNamespace(content=[SimpleNamespace(type="tool_use", input={"outcome": "cotizo", "price": 500})])
+    ext = qe.ClaudeExtractor.__new__(qe.ClaudeExtractor)
+    ext.client, ext.model = Cliente(), "modelo-prueba"
+    from pydantic import BaseModel
+    class Esquema(BaseModel):
+        outcome: str
+        price: int
+    out = ext._run("p", Esquema, "registrar", "texto")
+    assert out.price == 500 and llamadas == ["tool", "auto"]
