@@ -41,6 +41,7 @@ const config: NextConfig = {
   env: {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     NEXT_PUBLIC_APP_VERSION: `dev ${appVersion}`,
+    APP_VERSION: `dev ${appVersion}`,  // la ruta /version la devuelve para detectar versiones nuevas
   },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_INTERNAL_URL}/:path*` }];
