@@ -4,7 +4,7 @@ import { priceLabel, priceNote, shortDay, slotChip, sortQuotes, statusChip, shou
 import type { Quote } from "./servicios.ts";
 
 const q = (o: Partial<Quote>): Quote => ({ id: "x", label: "Técnico 1", rating: 4.5, reviews: 10, distance_km: 3, scope_quoted: "x", includes: [], excludes: [], price_min: 500, price_max: 500,
-  price_type: "fijo", visit_fee: 0, availability: [{ date: "2026-11-28", window: "tarde" }], warranty_days: 30, invoice: true, payment_methods: [], matches: "igual", summary: null, tags: [], ...o });
+  price_type: "fijo", visit_fee: 0, availability: [{ date: "2026-11-28", window: "tarde" }], warranty_days: 30, invoice: true, payment_methods: [], matches: "igual", summary: null, excerpt: null, tags: [], ...o });
 
 test("precio: fijo, rango y sin precio", () => {
   assert.equal(priceLabel({ price_min: 550, price_max: 550, price_type: "fijo" }), "$550");
