@@ -127,8 +127,15 @@ class ClaudeExtractor:
 
     def _run(self, prompt: str, schema: type[BaseModel], name: str, text: str):
         tool = {"name": name, "description": "Registra el resultado", "input_schema": schema.model_json_schema()}
-        resp = self.client.messages.create(model=self.model, max_tokens=1200, tools=[tool], tool_choice={"type": "tool", "name": name},
-                                           messages=[{"role": "user", "content": f"{prompt}\n\n<transcripcion>\n{text}\n</transcripcion>"}])
+        kwargs = dict(model=self.model, max_tokens=1200, tools=[tool], tool_choice={"type": "tool", "name": name},
+                      messages=[{"role": "user", "content": f"{prompt}\n\n<transcripcion>\n{text}\n</transcripcion>"}])
+        try:
+            resp = self.client.messages.create(**kwargs)
+        except Exception as e:
+            # Algunos modelos (p. ej. Sonnet 5.5) no aceptan forzar la herramienta: se pide en modo automatico.
+            if "tool_choice" not in str(e):
+                raise
+            resp = self.client.messages.create(**{**kwargs, "tool_choice": {"type": "auto"}})
         return schema.model_validate(next(b for b in resp.content if b.type == "tool_use").input)
 
     def quote(self, transcript, scope, today):
