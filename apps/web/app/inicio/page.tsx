@@ -73,9 +73,6 @@ export default function Inicio() {
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-32 pt-6">
       {top}{pill}
-      <Link href="/hogar" className="g mt-3 flex min-h-[52px] items-center gap-3 rounded-[22px] px-4 text-[14px] font-bold text-navy">
-        <Icon name="pin" size={19} />{home.properties[0]?.address?.complete ? [home.properties[0].address.colony ?? home.properties[0].address.street, home.properties[0].address.city].filter(Boolean).join(", ") : "Completa tu casa: dirección y datos"}
-        <span className="ml-auto"><Icon name="chevron" size={18} /></span></Link>
       <AppVersion className="mt-2 mb-3 text-muted/80" />
       <div className="mt-5">
         <h2 className="text-[32px] font-extrabold leading-[1.1] tracking-[-0.8px]">Cuida lo tuyo.</h2>
