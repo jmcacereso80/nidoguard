@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
-    "test": "tsc --noEmit && node --test lib/nidoUrl.test.ts lib/equipmentIcon.test.ts lib/care.test.ts lib/servicios.test.ts"
+    "test": "tsc --noEmit && node --test lib/nidoUrl.test.ts lib/equipmentIcon.test.ts lib/care.test.ts lib/servicios.test.ts lib/micasa.test.ts"
   },
   "dependencies": {
     "@clerk/localizations": "^4.27.0",

@@ -3,6 +3,7 @@ Con la voz falsa todo avanza solo con el tiempo (advance_fake), asi se recorre e
 Regla de privacidad: lo que se entrega a las personas usuarias nunca incluye telefono, direccion, sitio ni nombre del tecnico
 (el nombre solo cuando la visita ya esta confirmada)."""
 import uuid
+from .people import full_name
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -40,7 +41,7 @@ def step_seconds() -> int:
 
 # ------------------------------------------------------------------ crear
 def _property(db: Session, org_id) -> Property | None:
-    return db.scalar(select(Property).where(Property.organization_id == org_id).order_by(Property.created_at))
+    return db.scalar(select(Property).where(Property.organization_id == org_id).order_by(Property.is_primary.desc(), Property.created_at))
 
 
 def _property_of(db: Session, org_id, asset) -> Property | None:
@@ -193,7 +194,7 @@ def _start_manufacturer(db: Session, req: ServiceRequest, user, org, voice: Voic
     voice.place(db, call, CallContext(kind="fabricante", service=req.scope_text, equipment=req.equipment_label or "equipo",
                                       symptom=req.symptom, urgency=req.urgency, zone=prop.city or "",
                                       extra={"slot": 1, "brand": a.brand, "model": a.model, "serial": a.serial,
-                                             "holder_name": user.name, "address": prop.address}))
+                                             "holder_name": full_name(user), "address": prop.address}))
     _dispatch(db, req, voice)
     db.commit()
     return req

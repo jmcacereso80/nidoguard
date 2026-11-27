@@ -55,6 +55,8 @@ class User(Base):
     clerk_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     email: Mapped[str | None] = mapped_column(String(320))
     name: Mapped[str | None] = mapped_column(String(200))
+    first_name: Mapped[str | None] = mapped_column(String(120))
+    last_name: Mapped[str | None] = mapped_column(String(160))
     phone_e164: Mapped[str | None] = mapped_column(String(20))  # para agendar; solo se comparte con permiso
     created_at: Mapped[datetime] = now()
 
@@ -90,6 +92,7 @@ class Property(Base):
     lat: Mapped[float | None] = mapped_column(Float)
     lng: Mapped[float | None] = mapped_column(Float)
     search_radius_km: Mapped[int] = mapped_column(Integer, default=15, server_default=text("15"))
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     geocoded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = now()
 

@@ -1,6 +1,7 @@
 """Llamadas reales: marcar en oleadas y con reglas, recibir lo que paso (webhook), guardar cotizaciones y citas, recordatorios y cierre.
 Con voz falsa nada de esto marca: lo hace advance_fake. `tick` lo corre Prefect (o `python -m admin.tick`) cada minuto."""
 import uuid
+from .people import given_name
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -68,7 +69,7 @@ def _ctx(db: Session, req: ServiceRequest, call: ServiceCall) -> tuple[CallConte
             prop = db.get(Property, req.property_id) if req.property_id else None
             user = db.get(User, req.created_by) if req.created_by else None
             extra["direccion"] = prop.address if prop else None
-            extra["nombre"] = (user.name or "").split(" ")[0] if user and user.name else None
+            extra["nombre"] = given_name(user)
             if ap and ap.share_phone and user and user.phone_e164:
                 extra["telefono_cliente"] = user.phone_e164
         else:

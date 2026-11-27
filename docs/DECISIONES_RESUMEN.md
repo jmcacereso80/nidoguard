@@ -27,3 +27,9 @@ Nuevo: escanea QR de la hoja → "Crea tu cuenta para activar tu kit" → kit re
 - **Cotizaciones anónimas:** al técnico se le da la zona (colonia y ciudad), nunca la dirección ni el nombre de la persona.
 - **Llamadas en oleadas de 3, hasta 5 cotizaciones:** se detiene al llegar a 5.
 - **Todo apagado por defecto:** `CALLS_ENABLED=false`. Solo se marca a `CALLS_ALLOWLIST` mientras se prueba.
+
+## Mi casa (2026-11-27)
+- **Todo lo personal vive en Mi casa (`/hogar`):** nombres, apellidos, teléfono y hasta 5 direcciones. El teléfono ya no está en la pantalla de dirección.
+- **Nombre de pila al técnico = primera palabra de "nombres";** los apellidos solo van al fabricante cuando agenda garantía.
+- **Dirección principal:** una por hogar; se usa si no se elige otra. Al eliminar una dirección, sus lugares y equipos pasan a otra (nunca se borran).
+- **Teléfono:** se comparte con el técnico solo si la persona lo permite en cada cita.

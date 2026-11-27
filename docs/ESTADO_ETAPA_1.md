@@ -21,6 +21,10 @@ Base: PostgreSQL 17. Un solo servidor Ubuntu al inicio. Dominio `nidoguard.com` 
 - Directorio real probado en Tepoztlán, Morelos (refrigeración): 3 técnicos con teléfono mexicano válido. Costo del actor de Maps: US$0.004 por lugar.
 - Retell: agente de prueba creado con el guion de `docs/agente_cotizador.md` (idioma es-419, voz Claudia). El número de salida es el de la cuenta.
 
+## Mi casa (2026-11-27)
+- **Hecho:** `/hogar` (resumen con lista "Para pedir un servicio necesitas"), `/hogar/datos` (nombres, apellidos, teléfono), `/hogar/direccion` (nombre, campos, radio, principal, eliminar pasando equipos) y `/hogar/privacidad`. API: `PUT /me/profile`, `DELETE /properties/{id}?move_to=`, `is_primary` y `assets_count`. Migración **0013**. Mockups en `docs/mockups/MiCasa*.dc.html`.
+- **Sin hacer:** mapa con pin arrastrable (hoy la ubicación sale de buscar la dirección); interruptor permanente para compartir teléfono (se decide en cada cita); asignar un equipo a una dirección que no sea la principal al registrarlo.
+
 ## Pendiente o sin probar
 - **Prueba de llamadas con Retell de punta a punta:** falta agregar una dirección del hogar en Inicio, y después una prueba con `CALLS_ENABLED=true` y `CALLS_ALLOWLIST` solo con tu número. Luego se regresa a `false`.
 - **Grabaciones de llamadas:** requieren crear un bucket de R2; pendiente de tu permiso.

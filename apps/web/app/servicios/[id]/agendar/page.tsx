@@ -48,7 +48,7 @@ function Form({ id }: { id: string }) {
         <div className="mt-3"><NoCobro /></div>
         <ConsentCheck checked={ok} onChange={setOk}>Autorizo dar mi dirección al técnico cuando confirme la visita.</ConsentCheck>
         {tiene ? <ConsentCheck checked={tel} onChange={setTel}>Comparto mi teléfono con el técnico cuando confirme, para que pueda avisarme si llega o se retrasa.</ConsentCheck>
-          : <p className="mx-1.5 mt-2 text-[12.5px] leading-snug text-muted">Sin tu teléfono, el técnico no podrá avisarte si se retrasa. <Link href={`/hogar/direccion?volver=${encodeURIComponent(`/servicios/${id}/agendar?q=${qid}`)}`} className="font-extrabold underline">Agregar mi teléfono</Link></p>}
+          : <p className="mx-1.5 mt-2 text-[12.5px] leading-snug text-muted">Sin tu teléfono, el técnico no podrá avisarte si se retrasa. <Link href={`/hogar/datos?volver=${encodeURIComponent(`/servicios/${id}/agendar?q=${qid}`)}`} className="font-extrabold underline">Agregar mi teléfono</Link></p>}
         <ErrorNote text={m.isError ? (m.error as Error).message : null} />
         <Actions><button type="button" className="btn" disabled={m.isPending || !ok} onClick={pedir}><Icon name="check" size={19} stroke={2.4} />Pedir esta visita</button>
           <TextLink href={`/servicios/${id}/cotizacion/${qid}`}>Ahora no</TextLink></Actions>

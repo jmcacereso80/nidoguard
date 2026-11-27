@@ -79,7 +79,7 @@ def create_asset(body: AssetIn, user: User = Depends(current_user), org: Organiz
         if not space:
             raise HTTPException(404, "No encontramos esa ubicación.")
     elif body.new_space_name and body.new_space_name.strip():
-        prop = db.scalar(select(Property).where(Property.organization_id == org.id).order_by(Property.created_at))
+        prop = db.scalar(select(Property).where(Property.organization_id == org.id).order_by(Property.is_primary.desc(), Property.created_at))
         space = Space(organization_id=org.id, property_id=prop.id, name=body.new_space_name.strip())
         db.add(space)
         db.flush()
