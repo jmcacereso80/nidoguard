@@ -135,7 +135,7 @@ def _dial_search(db, req, voice, now):
             break
         ctx, phone = _ctx(db, req, c)
         p = db.get(ServiceProvider, c.provider_id) if c.provider_id else None
-        if p and (p.do_not_call or call_policy.cooling_down(db, p, req.id, now)):
+        if p and (p.do_not_call):
             c.status = "omitida"
             continue
         if voice.dial(db, c, ctx, phone):

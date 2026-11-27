@@ -41,7 +41,7 @@ def real(caso, monkeypatch):
     c, tokens = caso
     s = get_settings()
     for k, v in dict(voice="retell", calls_enabled=True, calls_allowlist="", retell_api_key=KEY, retell_agent_id="agent_x",
-                     retell_from_number="+5255000000", calls_wave=3, calls_window_enabled=False, calls_provider_cooldown_days=0, max_cost_per_day_usd=100000.0, max_cost_per_request_usd=100000.0).items():
+                     retell_from_number="+5255000000", calls_wave=3, calls_window_enabled=False, max_cost_per_day_usd=100000.0, max_cost_per_request_usd=100000.0).items():
         monkeypatch.setattr(s, k, v)
     TAG["v"] = uuid.uuid4().hex[:8]
     enviados = []

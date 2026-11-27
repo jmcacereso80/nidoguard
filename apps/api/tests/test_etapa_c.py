@@ -71,23 +71,6 @@ def test_horario_de_llamadas(monkeypatch):
     assert call_policy.next_open(LUNES) == LUNES
 
 
-def test_descanso_del_tecnico_no_aplica_a_los_de_prueba(caso, db, monkeypatch):
-    c, tokens = caso
-    monkeypatch.setattr(get_settings(), "calls_provider_cooldown_days", 7)
-    r = buscar(c, db, tokens)
-    p = ServiceProvider(source="fake", source_id=f"x:{uuid.uuid4()}", name="Frío Solo", phone_e164="+525500000001")
-    db.add(p)
-    db.flush()
-    db.add(ServiceCall(request_id=uuid.UUID(r["id"]), provider_id=p.id, purpose="cotizar", label="Técnico 99", status="llamando"))
-    db.commit()
-    now = datetime.now(timezone.utc)
-    assert call_policy.cooling_down(db, p, uuid.uuid4(), now) is True  # otra solicitud le llamó hace poco
-    assert call_policy.cooling_down(db, p, uuid.UUID(r["id"]), now) is False  # su propia solicitud no cuenta
-    assert call_policy.cooling_down(db, p, uuid.uuid4(), now + timedelta(days=8)) is False  # ya pasó el descanso
-    p.source = "prueba"
-    assert call_policy.cooling_down(db, p, uuid.uuid4(), now) is False  # los técnicos de prueba no descansan
-
-
 # ------------------------------------------------------------------ pieza 6: oleadas, horario, reintentos, topes
 def test_fuera_de_horario_espera_y_sigue_al_abrir(real, db, monkeypatch):
     c, tokens, enviados = real

@@ -47,7 +47,6 @@ class Settings(BaseSettings):
     calls_window_start: int = 9
     calls_window_end: int = 19
     calls_retry_after_min: int = 120  # segundo intento a quien no contesto
-    calls_provider_cooldown_days: int = 7  # un tecnico no recibe llamadas de solicitudes distintas mas de una vez en este plazo
     request_ttl_hours: int = 24  # la busqueda se cierra con lo que haya
     max_cost_per_request_usd: float = 3.0
     max_cost_per_day_usd: float = 15.0

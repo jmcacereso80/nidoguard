@@ -38,3 +38,4 @@ Nuevo: escanea QR de la hoja → "Crea tu cuenta para activar tu kit" → kit re
 - **La visita ya viene acordada:** la llamada de agendar confirma, no pregunta si el técnico puede ir. Solo pide hora aproximada y quién irá; después le da la dirección exacta y el nombre de pila de la persona.
 - **La persona ve quién irá:** nombre de pila que dice el técnico al confirmar (migración 0014, `visit_person`).
 - **Contacto recíproco:** teléfono de la persona al técnico solo con su permiso; si lo da, ve el del técnico al confirmarse la visita. Nota de acceso opcional (migración 0015). Sin guardar documentos.
+- **Sin descanso del técnico (2026-11-27):** se quitó la regla de no llamar a un técnico más de una vez cada 7 días entre solicitudes distintas. Si tiene disponibilidad, él acepta o rechaza en la llamada. Siguen: do_not_call, máx. 2 intentos y topes de costo.

@@ -1,4 +1,4 @@
-"""Reglas de las llamadas reales: horario, descanso de cada tecnico y topes de costo. Todo es funcion pura o consulta simple."""
+"""Reglas de las llamadas reales: horario y topes de costo. Todo es funcion pura o consulta simple."""
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -32,16 +32,6 @@ def next_open(now: datetime) -> datetime:
     while day.weekday() == 6:
         day += timedelta(days=1)
     return day.astimezone(timezone.utc)
-
-
-def cooling_down(db: Session, p: ServiceProvider, request_id, now: datetime) -> bool:
-    """True si otra solicitud ya le llamo hace menos de N dias. Los tecnicos de prueba no descansan."""
-    if p.source == "prueba":
-        return False
-    since = now - timedelta(days=get_settings().calls_provider_cooldown_days)
-    return bool(db.scalar(select(ServiceCall.id).where(
-        ServiceCall.provider_id == p.id, ServiceCall.request_id != request_id, ServiceCall.created_at > since,
-        ServiceCall.status.in_(SPENT_STATUS)).limit(1)))
 
 
 def spent(db: Session, request_id=None, since: datetime | None = None) -> float:
