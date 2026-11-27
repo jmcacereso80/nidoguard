@@ -1,11 +1,13 @@
 "use client";
 import { Suspense, use, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Shell, ErrorNote } from "@/components/Shell";
 import { Icon } from "@/components/Icon";
 import { Actions, ConsentCheck, Hr, Label, NoCobro, Summary, TextLink } from "@/components/servicios/ui";
 import { useRequestAction } from "@/components/servicios/hooks";
+import { useMe } from "@/components/useHome";
 import { useApi } from "@/lib/api";
 import { Quote, priceLabel, shortDay, slotWindowLong } from "@/lib/servicios";
 
@@ -18,9 +20,10 @@ function Form({ id }: { id: string }) {
   const api = useApi(); const router = useRouter(); const qid = useSearchParams().get("q") ?? "";
   const m = useRequestAction(id);
   const q = useQuery({ queryKey: ["svc-quote", id, qid], queryFn: () => api<{ quote: Quote; scope_text: string | null; equipment_label: string | null }>(`/service-requests/${id}/quotes/${qid}`), enabled: !!qid });
-  const [slot, setSlot] = useState(0); const [ok, setOk] = useState(true);
+  const me = useMe().data?.user; const tiene = !!me?.phone;
+  const [slot, setSlot] = useState(0); const [ok, setOk] = useState(true); const [tel, setTel] = useState(true);
   const d = q.data;
-  const pedir = () => m.mutate({ path: "/service-requests/{id}/schedule", body: { quote_id: qid, slot_index: slot, consent: ok } }, { onSuccess: () => router.push(`/servicios/${id}`) });
+  const pedir = () => m.mutate({ path: "/service-requests/{id}/schedule", body: { quote_id: qid, slot_index: slot, consent: ok, share_phone: tiene && tel } }, { onSuccess: () => router.push(`/servicios/${id}`) });
   return (
     <Shell title="Agendar visita" subtitle={d ? `${d.quote.label} · ${priceLabel(d.quote)}` : undefined} back={`/servicios/${id}/cotizacion/${qid}`} nav="servicios">
       {d && (<>
@@ -37,11 +40,15 @@ function Form({ id }: { id: string }) {
         <p className="mx-1.5 mt-2 text-[12.5px] leading-snug text-muted">Son los horarios que dio el técnico. Nosotros llamamos para confirmar la hora exacta y te avisamos.</p>
         <Label>Qué compartimos con el técnico</Label>
         <div className="g rounded-[26px] px-4 py-1.5">
-          <Compartido icon="user" text="Tu nombre de pila" ok /><Hr /><Compartido icon="pin" text="Tu dirección exacta, cuando confirme la visita" ok /><Hr />
-          <Compartido icon="wrench" text="El equipo y el trabajo acordado" ok /><Hr /><Compartido icon="phone" text="Tu teléfono no se comparte" ok={false} />
+          {me?.name && <><Compartido icon="user" text={`Tu nombre de pila (${me.name.split(" ")[0]})`} ok /><Hr /></>}
+          <Compartido icon="pin" text="Tu dirección exacta, cuando confirme la visita" ok /><Hr />
+          <Compartido icon="wrench" text="El equipo y el trabajo acordado" ok /><Hr />
+          <Compartido icon="phone" text={tiene && tel ? "Tu teléfono, cuando confirme la visita" : "Tu teléfono no se comparte"} ok={tiene && tel} />
         </div>
         <div className="mt-3"><NoCobro /></div>
         <ConsentCheck checked={ok} onChange={setOk}>Autorizo dar mi dirección al técnico cuando confirme la visita.</ConsentCheck>
+        {tiene ? <ConsentCheck checked={tel} onChange={setTel}>Comparto mi teléfono con el técnico cuando confirme, para que pueda avisarme si llega o se retrasa.</ConsentCheck>
+          : <p className="mx-1.5 mt-2 text-[12.5px] leading-snug text-muted">Sin tu teléfono, el técnico no podrá avisarte si se retrasa. <Link href={`/hogar/direccion?volver=${encodeURIComponent(`/servicios/${id}/agendar?q=${qid}`)}`} className="font-extrabold underline">Agregar mi teléfono</Link></p>}
         <ErrorNote text={m.isError ? (m.error as Error).message : null} />
         <Actions><button type="button" className="btn" disabled={m.isPending || !ok} onClick={pedir}><Icon name="check" size={19} stroke={2.4} />Pedir esta visita</button>
           <TextLink href={`/servicios/${id}/cotizacion/${qid}`}>Ahora no</TextLink></Actions>

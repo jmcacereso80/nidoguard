@@ -11,14 +11,14 @@ export type Quote = {
   scope_quoted: string | null; includes: string[]; excludes: string[];
   price_min: number | null; price_max: number | null; price_type: PriceType | null; visit_fee: number | null;
   availability: Slot[]; warranty_days: number | null; invoice: boolean | null; payment_methods: string[];
-  matches: "igual" | "parcial" | "distinto" | null; summary: string | null; tags: ("mas_barata" | "mas_pronto" | "mas_cerca")[];
+  matches: "igual" | "parcial" | "distinto" | null; summary: string | null; excerpt: string | null; tags: ("mas_barata" | "mas_pronto" | "mas_cerca")[];
 };
 export type CallRow = { label: string; distance_km: number | null; status: string; price_min: number | null; price_max: number | null };
 export type Appointment = {
   id: string; kind: "tecnico" | "fabricante"; status: "por_confirmar" | "confirmada" | "por_reprogramar" | "cancelada" | "realizada";
   location_type: "domicilio" | "centro"; center_name: string | null; center_address: string | null; folio: string | null; bring: string[];
   starts_at: string | null; ends_at: string | null; requested_slot: Slot | null; registered_by_user: boolean; final_cost: number | null;
-  technician_name: string | null;
+  technician_name: string | null; contact_shared: boolean;
   agreed: { label: string; scope: string | null; price_min: number | null; price_max: number | null; price_type: PriceType | null; visit_fee: number | null;
             warranty_days: number | null; invoice: boolean | null; rating: number | null; reviews: number | null } | null;
 };
@@ -26,7 +26,7 @@ export type ServiceRequest = {
   id: string; origin: "tarea" | "libre"; route: Route; status: ReqStatus; equipment_label: string | null; asset_id: string | null;
   care_task_id: string | null; symptom: string | null; scope_text: string | null; specialty: string | null; urgency: Urgency;
   safety: Safety | null; warranty: { ends_on: string; days_left: number; provider: string | null } | null;
-  zone: string | null; address_complete: boolean; radius_km: number; target_quotes: number; created_at: string; quote_count: number;
+  zone: string | null; property_id: string | null; address_name: string | null; address_complete: boolean; radius_km: number; target_quotes: number; created_at: string; quote_count: number;
   appointment: Appointment | null; quotes?: Quote[]; calls?: CallRow[];
   manufacturer: { brand: string | null; model: string | null; serial: string | null; holder_name: string | null; phone: string | null; address: string | null; warranty_ends_on: string | null } | null;
 };

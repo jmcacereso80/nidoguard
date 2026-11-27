@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { ErrorNote } from "@/components/Shell";
+import { useMe } from "@/components/useHome";
 import {
   Actions, Callout, Chip, ConsentCheck, Hero, Hr, KV, Label, NoCobro, Note, Steps, Summary, TextLink, Timeline,
 } from "./ui";
@@ -44,6 +45,7 @@ export function Confirmar({ r, act, busy, err }: P) {
   const guardar = () => { if (scope.trim() && scope.trim() !== r.scope_text) act("/service-requests/{id}/scope", { scope_text: scope.trim() }); };
   const falla = r.origin === "libre";
   const puedeFabricante = !!r.asset_id;
+  const sitios = (useMe().data?.home?.properties ?? []).filter((p) => p.address?.complete);
   return (
     <div>
       <div className="g mt-3 rounded-[26px] p-4">
@@ -58,18 +60,28 @@ export function Confirmar({ r, act, busy, err }: P) {
       {r.warranty && <div className="mt-3"><Callout icon="shieldok"><b>Tu garantía sigue vigente ({r.warranty.days_left} días).</b> Pregunta primero si este trabajo está cubierto.</Callout></div>}
       {falla && <div className="mt-3"><Callout>Para una falla, el técnico no puede dar el precio final por teléfono. Te diremos lo que cobra por revisar y un precio aproximado de la reparación.</Callout></div>}
       <Label>Dónde</Label>
+      {sitios.length > 1 && (
+        <div role="radiogroup" aria-label="Dirección del servicio" className="mb-2 flex flex-col gap-2">
+          {sitios.map((p) => (
+            <label key={p.id} className="g flex min-h-14 items-center gap-3 rounded-[22px] px-3.5 py-2.5">
+              <input type="radio" name="direccion" checked={r.property_id === p.id} onChange={() => act("/service-requests/{id}/scope", { property_id: p.id })} className="h-[22px] w-[22px] flex-none accent-[#183B56]" />
+              <span className="min-w-0 flex-1 text-[14px] font-extrabold leading-tight">{p.name}<span className="block text-[12.5px] font-semibold text-muted">{[p.address?.colony ?? p.address?.street, p.address?.city].filter(Boolean).join(", ")}</span></span>
+            </label>
+          ))}
+        </div>
+      )}
       {r.address_complete ? (
         <div className="g flex items-center gap-3 rounded-[22px] px-3.5 py-2.5">
           <span className="text-navy"><Icon name="pin" size={20} /></span>
           <div className="min-w-0 flex-1"><p className="text-[14px] font-extrabold">{r.zone}</p><p className="text-[12.5px] text-muted">Técnicos a menos de {r.radius_km} km</p></div>
-          <Link href={`/hogar/direccion?volver=/servicios/${r.id}`} className="flex min-h-11 items-center pl-2 text-[13px] font-extrabold text-navy">Cambiar</Link>
+          <Link href={`/hogar/direccion?p=${r.property_id ?? ""}&volver=/servicios/${r.id}`} className="flex min-h-11 items-center pl-2 text-[13px] font-extrabold text-navy">{sitios.length > 1 ? "Editar" : "Cambiar"}</Link>
         </div>
       ) : (
         <Callout icon="pin">Para buscar técnicos cercanos necesitamos la dirección de tu hogar. <Link href={`/hogar/direccion?volver=/servicios/${r.id}`} className="font-extrabold underline">Agregar mi dirección</Link></Callout>
       )}
       <Steps items={[["phone", "Un asistente virtual llama a técnicos cercanos por ti."], ["list", "Te mostramos hasta 5 cotizaciones con precio y fecha."], ["lock", "Los técnicos no ven tu dirección ni tu teléfono hasta que tú elijas."]]} />
       <div className="mt-4"><NoCobro /></div>
-      <ConsentCheck checked={ok} onChange={setOk}>Autorizo que NidoGuard llame de mi parte. Las llamadas se graban.</ConsentCheck>
+      <ConsentCheck checked={ok} onChange={setOk}>Autorizo que NidoGuard llame de mi parte. Tú verás solo un extracto de lo que dijo el técnico, sin su nombre ni sus datos; no compartimos la grabación.</ConsentCheck>
       <ErrorNote text={err} />
       <Actions>
         <Btn disabled={busy || !ok || !r.address_complete} onClick={() => act("/service-requests/{id}/start", { consent: ok })}><Icon name="phone" size={19} stroke={2.2} />Buscar cotizaciones</Btn>
@@ -83,6 +95,7 @@ export function Confirmar({ r, act, busy, err }: P) {
 export function FabricanteDatos({ r, act, busy, err }: P) {
   const m = r.manufacturer!;
   const [ok, setOk] = useState(true);
+  const guardado = useMe().data?.user.phone ?? "";
   const [phone, setPhone] = useState("");
   const dato = (icon: string, k: string, v: string | null) => v ? <><KV icon={icon} k={k} v={v} /><Hr /></> : null;
   return (
@@ -102,7 +115,7 @@ export function FabricanteDatos({ r, act, busy, err }: P) {
         {dato("tag", "Número de serie", m.serial)}
         {dato("shieldok", "Garantía hasta", m.warranty_ends_on ? shortDay(m.warranty_ends_on) : null)}
         <div className="py-3"><label htmlFor="tel" className="text-[12.5px] text-muted">Tu teléfono (el fabricante lo pide para agendar)</label>
-          <input id="tel" inputMode="tel" autoComplete="tel" placeholder="55 1234 5678" value={phone} onChange={(e) => setPhone(e.target.value)} className="field mt-1" /></div>
+          <input id="tel" inputMode="tel" autoComplete="tel" placeholder={guardado ? "Usaremos el que guardaste" : "55 1234 5678"} value={phone} onChange={(e) => setPhone(e.target.value)} className="field mt-1" /></div>
       </div>
       <ConsentCheck checked={ok} onChange={setOk}>Autorizo que NidoGuard llame al fabricante y le dé estos datos para agendar mi servicio. La llamada se graba.</ConsentCheck>
       <div className="mt-2.5"><NoCobro text={NO_COBRO_FABRICANTE} /></div>
@@ -253,10 +266,16 @@ export function QuoteDetail({ q, scope, rid }: { q: Quote; scope: string | null;
       </div>
       <Label>Cuándo puede ir</Label>
       <div className="g flex flex-wrap gap-2 rounded-[26px] p-3.5">{q.availability.map((s) => <Chip key={`${s.date}${s.window}`} icon="calendar">{slotChip(s)}</Chip>)}</div>
-      {q.summary && (<>
+      {(q.excerpt || q.summary) && (<>
         <Label>Lo que dijo por teléfono</Label>
-        <div className="g rounded-[26px] p-4"><p className="flex items-center gap-1.5 text-[12px] font-bold text-[#8F5A1F]"><Icon name="sparkle" size={14} stroke={2.2} />Resumen de NidoGuard</p>
-          <p className="mt-2 text-[14px] leading-relaxed">{q.summary}</p></div></>)}
+        <div className="g rounded-[26px] p-4">
+          {q.excerpt && (<><p className="flex items-center gap-1.5 text-[12px] font-bold text-[#8F5A1F]"><Icon name="phone" size={14} stroke={2.2} />Lo que dijo el técnico</p>
+            <blockquote className="mt-2 border-l-2 border-copper/60 pl-3 text-[14px] italic leading-relaxed">{q.excerpt}</blockquote>
+            <p className="mt-2 text-[12px] leading-snug text-muted">Extracto solo del trabajo y el precio. Quitamos nombres y datos de contacto; no compartimos la grabación.</p></>)}
+          {q.summary && (<><p className={`flex items-center gap-1.5 text-[12px] font-bold text-[#8F5A1F] ${q.excerpt ? "mt-3.5" : ""}`}><Icon name="sparkle" size={14} stroke={2.2} />Resumen de NidoGuard</p>
+            <p className="mt-2 text-[14px] leading-relaxed">{q.summary}</p></>)}
+        </div>
+      </>)}
       <div className="mt-3"><NoCobro /></div>
       <Note>Cotización por teléfono. El precio puede cambiar cuando el técnico revise tu equipo.</Note>
       <Actions><Link href={`/servicios/${rid}/agendar?q=${q.id}`} className="btn"><Icon name="calendar" size={19} stroke={2.2} />Elegir y agendar</Link>

@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..models import Membership, Organization, Property, Space, User
 from ..security import current_org, current_user
+from ..services.providers import to_e164_mx
 from ..services.geocoder import Geocoder, get_geocoder
 
 router = APIRouter(tags=["cuenta"])
@@ -26,6 +27,14 @@ class AddressIn(BaseModel):
     search_radius_km: int = Field(default=15, pattern=None)
 
 
+class PropertyIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+
+
+class PhoneIn(BaseModel):
+    phone: str | None = Field(default=None, max_length=30)
+
+
 class SpaceIn(BaseModel):
     property_id: str | None = None
     name: str = Field(min_length=1, max_length=120)
@@ -40,7 +49,7 @@ def _address_out(p: Property):
 
 
 def _org_out(db: Session, org: Organization):
-    props = db.scalars(select(Property).where(Property.organization_id == org.id)).all()
+    props = db.scalars(select(Property).where(Property.organization_id == org.id).order_by(Property.created_at)).all()
     return {"id": str(org.id), "name": org.name,
             "properties": [{"id": str(p.id), "name": p.name, "address": _address_out(p)} for p in props]}
 
@@ -51,7 +60,7 @@ def me(user: User = Depends(current_user), db: Session = Depends(get_db)):
         select(Organization).join(Membership, Membership.organization_id == Organization.id)
         .where(Membership.user_id == user.id)
     )
-    return {"user": {"id": str(user.id), "email": user.email, "name": user.name},
+    return {"user": {"id": str(user.id), "email": user.email, "name": user.name, "phone": user.phone_e164},
             "home": _org_out(db, org) if org else None,
             "suggested_spaces": SUGGESTED_SPACES}
 
@@ -91,6 +100,32 @@ def create_space(body: SpaceIn, org: Organization = Depends(current_org), db: Se
     db.add(s)
     db.commit()
     return {"id": str(s.id), "name": s.name, "icon": s.icon, "property_id": str(prop.id)}
+
+
+@router.post("/properties", status_code=201)
+def add_property(body: PropertyIn, org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+    """Otra direccion (casa de la familia, oficina...). Se le pone su direccion con PUT /properties/{id}/address."""
+    n = db.scalar(select(func.count()).select_from(Property).where(Property.organization_id == org.id)) or 0
+    if n >= 5:
+        raise HTTPException(409, "Puedes guardar hasta 5 direcciones.")
+    prop = Property(organization_id=org.id, name=body.name.strip())
+    db.add(prop)
+    db.commit()
+    return {"id": str(prop.id), "name": prop.name, "address": _address_out(prop)}
+
+
+@router.put("/me/phone")
+def set_phone(body: PhoneIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Telefono para agendar. No se comparte con el tecnico salvo que la persona lo autorice al agendar."""
+    if body.phone is None or not body.phone.strip():
+        user.phone_e164 = None
+    else:
+        e164 = to_e164_mx(body.phone)
+        if not e164:
+            raise HTTPException(422, "Escribe tu teléfono a 10 dígitos.")
+        user.phone_e164 = e164
+    db.commit()
+    return {"phone": user.phone_e164}
 
 
 @router.put("/properties/{property_id}/address")

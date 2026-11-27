@@ -29,3 +29,7 @@ URL: `https://api.nidoguard.com/webhooks/retell`, eventos `call_started`, `call_
 - Crear el agente y la prueba con número propio; confirmar nombres de variables y si Retell permite salir a México con el número elegido.
 - Guardar grabaciones: pide permiso para el bucket (R2) antes de crearlo.
 - Prueba de viabilidad con el fabricante (pieza 0B) y tabla de líneas por marca (pieza 9): hoy la ruta del fabricante pasa a "agenda tú" porque no hay teléfono de la línea.
+
+## Extracto para la persona (actualizado)
+La persona NO recibe la llamada ni la transcripción. Recibe `excerpt`: lo que dijo el técnico solo sobre trabajo, precio, visita, garantía y disponibilidad, casi textual, sin nombre del negocio, teléfonos ni direcciones. Lo escribe el extractor (`technician_said`); se descarta si no sale de la transcripción (70 % de palabras en común) y se limpia con `scrub` y el nombre del negocio.
+Teléfono: se guarda en el perfil (PUT /me/phone). Al agendar la persona decide si el técnico lo recibe al confirmar (`share_phone`). La llamada de confirmación (etapa C) debe usarlo solo si `share_phone` es verdadero.

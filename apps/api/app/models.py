@@ -55,6 +55,7 @@ class User(Base):
     clerk_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     email: Mapped[str | None] = mapped_column(String(320))
     name: Mapped[str | None] = mapped_column(String(200))
+    phone_e164: Mapped[str | None] = mapped_column(String(20))  # para agendar; solo se comparte con permiso
     created_at: Mapped[datetime] = now()
 
 
@@ -435,6 +436,7 @@ class ServiceQuote(Base):
     payment_methods: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
     matches: Mapped[str | None] = mapped_column(String(10))  # igual | parcial | distinto
     summary: Mapped[str | None] = mapped_column(Text)
+    excerpt: Mapped[str | None] = mapped_column(Text)  # lo que dijo el tecnico sobre trabajo y precio, sin nombres ni datos
     confidence: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
     created_at: Mapped[datetime] = now()
     __table_args__ = (Index("uq_quote_request_provider", "request_id", "provider_id", unique=True),)
@@ -459,6 +461,7 @@ class ServiceAppointment(Base):
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(16), default="por_confirmar")
     registered_by_user: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    share_phone: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     address_shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     final_cost: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = now()

@@ -28,6 +28,7 @@ class ScopeIn(BaseModel):
     scope_text: str | None = Field(default=None, min_length=5, max_length=1000)
     route: str | None = Field(default=None, pattern="^(tecnico|fabricante)$")
     urgency: str | None = Field(default=None, pattern="^(hoy|semana|sin_prisa)$")
+    property_id: uuid.UUID | None = None
 
 
 class StartIn(BaseModel):
@@ -39,6 +40,7 @@ class ScheduleIn(BaseModel):
     quote_id: uuid.UUID
     slot_index: int = 0
     consent: bool = False
+    share_phone: bool = False
 
 
 class RegisterIn(BaseModel):
@@ -105,6 +107,8 @@ def set_scope(request_id: uuid.UUID, body: ScopeIn, org: Organization = Depends(
         r.route = body.route
     if body.urgency:
         r.urgency = body.urgency
+    if body.property_id:
+        F.set_property(db, org, r, body.property_id)
     db.commit()
     return F.request_out(db, r)
 
@@ -162,7 +166,7 @@ def get_quote(request_id: uuid.UUID, quote_id: uuid.UUID, org: Organization = De
 def schedule(request_id: uuid.UUID, body: ScheduleIn, user: User = Depends(current_user), org: Organization = Depends(current_org),
              db: Session = Depends(get_db)):
     r = _req(db, org, request_id)
-    F.schedule(db, r, user, org, body.quote_id, body.slot_index, body.consent)
+    F.schedule(db, r, user, org, body.quote_id, body.slot_index, body.consent, body.share_phone)
     return F.request_out(db, r)
 
 

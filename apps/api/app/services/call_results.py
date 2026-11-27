@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..models import (EquipmentAsset, Property, ServiceAppointment, ServiceCall, ServiceProvider, ServiceQuote, ServiceRequest, User)
 from .providers import to_e164_mx
-from .quote_extractor import Extractor, ManufacturerDraft, QuoteDraft, scrub
+from .quote_extractor import Extractor, ManufacturerDraft, QuoteDraft, clean_excerpt, scrub
 from .voice import CallContext, VoiceCaller
 
 FINAL = ("completada", "sin_respuesta", "rechazo", "error", "omitida", "cancelada")
@@ -139,6 +139,7 @@ def apply_quote(db: Session, req: ServiceRequest, call: ServiceCall, draft: Quot
         price_min=lo, price_max=hi, price_type=ptype, visit_fee=draft.visit_fee if draft.visit_fee is None or 0 <= draft.visit_fee <= 5000 else None,
         availability=_slots(draft, today), warranty_days=draft.warranty_days if draft.warranty_days is None or 0 <= draft.warranty_days <= 730 else None,
         invoice=draft.invoice, payment_methods=list(draft.payment_methods), matches=draft.matches, summary=scrub(draft.summary),
+        excerpt=clean_excerpt(draft.technician_said, call.transcript or "", [p.name]),
         confidence={"precio": round(draft.confidence_price, 2), "alcance": round(draft.confidence_scope, 2)})
     db.add(q)
     p.quotes_given += 1

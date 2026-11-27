@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
-from ..models import (User, AssetEvent, CareTask, Consent, EquipmentAsset, Property, ServiceAppointment, ServiceCall, ServiceProvider,
+from ..models import (Space, User, AssetEvent, CareTask, Consent, EquipmentAsset, Property, ServiceAppointment, ServiceCall, ServiceProvider,
                       ServiceQuote, ServiceRequest, Warranty)
 from . import safety
 from .providers import SPECIALTIES, candidates, ensure_directory, get_source, specialty_for, to_e164_mx
@@ -40,6 +40,15 @@ def step_seconds() -> int:
 # ------------------------------------------------------------------ crear
 def _property(db: Session, org_id) -> Property | None:
     return db.scalar(select(Property).where(Property.organization_id == org_id).order_by(Property.created_at))
+
+
+def _property_of(db: Session, org_id, asset) -> Property | None:
+    """La direccion donde esta el equipo; si no se sabe, la primera."""
+    if asset is not None and asset.space_id:
+        sp = db.get(Space, asset.space_id)
+        if sp:
+            return db.get(Property, sp.property_id)
+    return _property(db, org_id)
 
 
 def create_request(db: Session, org, user, *, asset_id=None, care_task_id=None, equipment_label=None, symptom=None,
@@ -74,7 +83,7 @@ def create_request(db: Session, org, user, *, asset_id=None, care_task_id=None, 
     route = "tecnico"
     if asset and service_mode(asset.category) == "llevar":
         route = "fabricante"
-    prop = _property(db, org.id)
+    prop = _property_of(db, org.id, asset)
     req = ServiceRequest(
         organization_id=org.id, property_id=prop.id if prop else None, asset_id=asset.id if asset else None,
         care_task_id=task.id if task else None, created_by=user.id, origin="tarea" if task else "libre", route=route,
@@ -84,6 +93,15 @@ def create_request(db: Session, org, user, *, asset_id=None, care_task_id=None, 
     db.add(req)
     db.commit()
     return req, True
+
+
+def set_property(db: Session, org, req: ServiceRequest, property_id) -> None:
+    prop = db.scalar(select(Property).where(Property.id == property_id, Property.organization_id == org.id))
+    if not prop:
+        raise HTTPException(404, "No encontramos esa dirección.")
+    if prop.lat is None:
+        raise HTTPException(422, "Esa dirección aún no está completa.")
+    req.property_id = prop.id
 
 
 # ------------------------------------------------------------------ confirmar y buscar
@@ -153,7 +171,7 @@ def _dispatch(db, req, voice):
 
 
 def _start_manufacturer(db: Session, req: ServiceRequest, user, org, voice: VoiceCaller, phone: str | None) -> ServiceRequest:
-    e164 = to_e164_mx(phone)
+    e164 = to_e164_mx(phone) or user.phone_e164
     if not e164:
         raise HTTPException(422, "Escribe tu teléfono a 10 dígitos: el fabricante lo pide para agendar.")
     if not req.asset_id:
@@ -189,6 +207,16 @@ def _slots(i: int) -> list[dict]:
     return [{"date": (d0 + timedelta(days=pick[(i + k) % 5][0] + (i % 3))).isoformat(), "window": pick[(i + k) % 5][1]} for k in range(3)]
 
 
+def _fake_excerpt(q: dict, idx: int) -> str:
+    if q["price_type"] == "rango":
+        precio = f"Me sale entre {q['price_min']:.0f} y {q['price_max']:.0f} pesos, depende de lo que encontremos."
+    elif q["price_type"] == "solo_revision":
+        precio = f"La revisión son {q['price_min']:.0f} pesos; la reparación se cotiza en la casa."
+    else:
+        precio = f"Son {q['price_min']:.0f} pesos."
+    return f"{q['scope_quoted']} {precio} Puedo ir en los próximos días."
+
+
 def _fake_quote(db: Session, req: ServiceRequest, call: ServiceCall, idx: int) -> ServiceQuote:
     p = db.get(ServiceProvider, call.provider_id)
     base = _PRICE.get(req.specialty or "", 500)
@@ -211,7 +239,7 @@ def _fake_quote(db: Session, req: ServiceRequest, call: ServiceCall, idx: int) -
         request_id=req.id, provider_id=p.id, call_id=call.id, label=call.label, rating=p.rating, reviews=p.reviews,
         distance_km=call.distance_km, visit_fee=0 if idx % 3 == 0 else 150, availability=_slots(idx),
         warranty_days=_GARANTIAS[idx % len(_GARANTIAS)], invoice=idx % 3 != 2, payment_methods=["efectivo", "transferencia"],
-        summary=resumen, confidence={"precio": 0.9, "alcance": 0.8}, **q)
+        summary=resumen, confidence={"precio": 0.9, "alcance": 0.8}, excerpt=_fake_excerpt(q, idx), **q)
     db.add(quote)
     p.quotes_given += 1
     return quote
@@ -300,7 +328,7 @@ def _confirm_fake_appointment(db, req, ap, now):
 
 
 # ------------------------------------------------------------------ agendar con un tecnico
-def schedule(db: Session, req: ServiceRequest, user, org, quote_id, slot_index: int, consent: bool) -> ServiceAppointment:
+def schedule(db: Session, req: ServiceRequest, user, org, quote_id, slot_index: int, consent: bool, share_phone: bool = False) -> ServiceAppointment:
     if req.status not in ("lista", "buscando"):
         raise HTTPException(409, "Esta solicitud no se puede agendar ahora.")
     q = db.scalar(select(ServiceQuote).where(ServiceQuote.id == quote_id, ServiceQuote.request_id == req.id))
@@ -310,9 +338,11 @@ def schedule(db: Session, req: ServiceRequest, user, org, quote_id, slot_index: 
         raise HTTPException(422, "Elige un horario de los que dio el técnico.")
     if not consent:
         raise HTTPException(422, "Necesitamos tu permiso para dar tu dirección al técnico cuando confirme la visita.")
+    if share_phone and not user.phone_e164:
+        raise HTTPException(422, "Agrega tu teléfono para compartirlo con el técnico.")
     _consent(db, user, org, req, "compartir_datos_para_visita")
     ap = ServiceAppointment(request_id=req.id, quote_id=q.id, provider_id=q.provider_id, provider_kind="tecnico", location_type="domicilio",
-                            requested_slot=q.availability[slot_index], status="por_confirmar")
+                            requested_slot=q.availability[slot_index], status="por_confirmar", share_phone=share_phone)
     db.add(ap)
     req.status, req.chosen_quote_id = "agendada", q.id
     for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.status == "en_cola")):
@@ -351,14 +381,14 @@ def quote_out(q: ServiceQuote, tags: list[str] | None = None) -> dict:
             "scope_quoted": q.scope_quoted, "includes": q.includes, "excludes": q.excludes,
             "price_min": q.price_min, "price_max": q.price_max, "price_type": q.price_type, "visit_fee": q.visit_fee,
             "availability": q.availability, "warranty_days": q.warranty_days, "invoice": q.invoice,
-            "payment_methods": q.payment_methods, "matches": q.matches, "summary": q.summary, "tags": tags or []}
+            "payment_methods": q.payment_methods, "matches": q.matches, "summary": q.summary, "excerpt": q.excerpt, "tags": tags or []}
 
 
 def appointment_out(db: Session, ap: ServiceAppointment) -> dict:
     out = {"id": str(ap.id), "kind": ap.provider_kind, "status": ap.status, "location_type": ap.location_type,
            "center_name": ap.center_name, "center_address": ap.center_address, "folio": ap.folio, "bring": ap.bring,
            "starts_at": ap.starts_at.isoformat() if ap.starts_at else None, "ends_at": ap.ends_at.isoformat() if ap.ends_at else None,
-           "requested_slot": ap.requested_slot, "registered_by_user": ap.registered_by_user, "final_cost": ap.final_cost,
+           "requested_slot": ap.requested_slot, "registered_by_user": ap.registered_by_user, "contact_shared": ap.share_phone, "final_cost": ap.final_cost,
            "technician_name": None, "agreed": None}
     if ap.quote_id:
         q = db.get(ServiceQuote, ap.quote_id)
@@ -399,7 +429,8 @@ def request_out(db: Session, req: ServiceRequest, detail: bool = True) -> dict:
         "symptom": req.symptom, "scope_text": req.scope_text, "specialty": req.specialty, "urgency": req.urgency,
         "safety": safety.alert_out(req.safety_alert, req.safety_acknowledged), "warranty": warranty,
         "zone": ", ".join(x for x in [req.zone_colony or (prop.colony if prop else None), req.zone_city or (prop.city if prop else None)] if x) or None,
-        "address_complete": bool(prop and prop.lat is not None), "radius_km": req.radius_km, "target_quotes": req.target_quotes,
+        "address_complete": bool(prop and prop.lat is not None), "property_id": str(prop.id) if prop else None,
+        "address_name": prop.name if prop else None, "radius_km": req.radius_km, "target_quotes": req.target_quotes,
         "created_at": req.created_at.isoformat(), "quote_count": len(quotes),
         "appointment": appointment_out(db, ap) if ap else None,
         "manufacturer": _manufacturer_out(db, req, prop) if req.route == "fabricante" else None,
