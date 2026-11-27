@@ -41,9 +41,9 @@ export default function Inicio() {
     </div>
   );
   const pill = (
-    <div className="gs mt-4 flex h-[54px] items-center gap-2.5 rounded-[27px] px-5 text-xl font-extrabold text-navy">
-      <Icon name="home" />{home.name}
-    </div>
+    <Link href="/hogar" aria-label={`${home.name}: ver mis datos y direcciones`} className="gs mt-4 flex h-[54px] items-center gap-2.5 rounded-[27px] px-5 text-xl font-extrabold text-navy">
+      <Icon name="home" />{home.name}<span className="ml-auto"><Icon name="chevron" size={20} stroke={2.4} /></span>
+    </Link>
   );
 
   if (assets.isSuccess && list.length === 0) {
