@@ -1,21 +1,26 @@
-"""Llamadas reales: marcar en oleadas, recibir lo que pasó (webhook), guardar la cotización o la cita y cerrar la búsqueda.
-Con voz falsa nada de esto marca: lo hace advance_fake."""
+"""Llamadas reales: marcar en oleadas y con reglas, recibir lo que paso (webhook), guardar cotizaciones y citas, recordatorios y cierre.
+Con voz falsa nada de esto marca: lo hace advance_fake. `tick` lo corre Prefect (o `python -m admin.tick`) cada minuto."""
 import uuid
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..models import (EquipmentAsset, Property, ServiceAppointment, ServiceCall, ServiceProvider, ServiceQuote, ServiceRequest, User)
-from .providers import to_e164_mx
-from .quote_extractor import Extractor, ManufacturerDraft, QuoteDraft, clean_excerpt, scrub
+from . import call_policy
+from .manufacturers import verified_line
+from .quote_extractor import AppointmentDraft, Extractor, ManufacturerDraft, QuoteDraft, clean_excerpt, scrub
 from .voice import CallContext, VoiceCaller
 
 FINAL = ("completada", "sin_respuesta", "rechazo", "error", "omitida", "cancelada")
 NO_ANSWER = {"dial_failed", "dial_no_answer", "dial_busy", "voicemail_reached", "machine_detected", "invalid_destination", "telephony_provider_permission_denied"}
 STUCK_AFTER = timedelta(minutes=30)
 WINDOWS = {"manana", "tarde", "dia"}
+MX = ZoneInfo("America/Mexico_City")
+MAX_ATTEMPTS = 2
+MAX_ROUNDS = 2
 
 
 def _now() -> datetime:
@@ -27,27 +32,92 @@ def _is_real(voice: VoiceCaller) -> bool:
     return getattr(voice, "name", "") == "retell"
 
 
+def _slot_text(slot: dict | None) -> str:
+    if not slot:
+        return ""
+    from .requests_flow import today_mx  # noqa: F401
+    d = date.fromisoformat(slot["date"])
+    dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+    return f"{dias[d.weekday()]} {d.day} por la {'mañana' if slot.get('window') == 'manana' else 'tarde' if slot.get('window') == 'tarde' else 'mañana o tarde'}"
+
+
+def _money(q: ServiceQuote) -> str:
+    if q.price_min is None:
+        return ""
+    return f"{q.price_min:.0f} pesos" if q.price_max in (None, q.price_min) else f"entre {q.price_min:.0f} y {q.price_max:.0f} pesos"
+
+
 def _ctx(db: Session, req: ServiceRequest, call: ServiceCall) -> tuple[CallContext, str | None]:
     zone = ", ".join(x for x in [req.zone_colony, req.zone_city] if x)
     if call.purpose == "fabricante":
         a = db.get(EquipmentAsset, req.asset_id) if req.asset_id else None
         prop = db.get(Property, req.property_id) if req.property_id else None
         user = db.get(User, req.created_by) if req.created_by else None
+        line = verified_line(db, a.brand if a else None)  # una linea sin verificar nunca se llama
         extra = {"marca": a.brand if a else None, "modelo": a.model if a else None, "serie": a.serial if a else None,
                  "titular": getattr(user, "name", None), "direccion": prop.address if prop else None, "telefono_titular": req.contact_phone}
         return CallContext(kind="fabricante", service=req.scope_text, equipment=req.equipment_label or "equipo", symptom=req.symptom,
-                           urgency=req.urgency, zone=zone or (prop.city if prop else ""), extra=extra), None  # sin linea del fabricante todavia (pieza 9)
+                           urgency=req.urgency, zone=zone or (prop.city if prop else ""), extra=extra), (line.phone_e164 if line else None)
     p = db.get(ServiceProvider, call.provider_id)
+    if call.purpose in ("agendar", "recordatorio"):
+        ap = db.scalar(select(ServiceAppointment).where(ServiceAppointment.request_id == req.id, ServiceAppointment.provider_id == call.provider_id)
+                       .order_by(ServiceAppointment.created_at.desc()))
+        q = db.get(ServiceQuote, ap.quote_id) if ap and ap.quote_id else None
+        extra = {"precio": _money(q) if q else "", "franja_elegida": _slot_text(ap.requested_slot if ap else None)}
+        if call.purpose == "agendar":  # la direccion exacta y el nombre de pila solo salen aqui, despues de que la persona eligio
+            prop = db.get(Property, req.property_id) if req.property_id else None
+            user = db.get(User, req.created_by) if req.created_by else None
+            extra["direccion"] = prop.address if prop else None
+            extra["nombre"] = (user.name or "").split(" ")[0] if user and user.name else None
+            if ap and ap.share_phone and user and user.phone_e164:
+                extra["telefono_cliente"] = user.phone_e164
+        else:
+            extra["franja_elegida"] = ap.starts_at.astimezone(MX).strftime("%d/%m a las %H:%M") if ap and ap.starts_at else ""
+        return CallContext(kind=call.purpose, service=q.scope_quoted if q else req.scope_text, equipment=req.equipment_label or "equipo", symptom=None,
+                           urgency=req.urgency, zone=zone, business_name=p.name, extra=extra), p.phone_e164
     return CallContext(kind="cotizar", service=req.scope_text, equipment=req.equipment_label or "equipo", symptom=req.symptom,
                        urgency=req.urgency, zone=zone, business_name=p.name), p.phone_e164
 
 
+def resumes_at(db: Session, req: ServiceRequest, voice_name: str) -> datetime | None:
+    """Si la busqueda esta esperando a que abra el horario de llamadas, cuando sigue."""
+    if voice_name != "retell" or req.status != "buscando":
+        return None
+    now = _now()
+    if call_policy.in_window(now):
+        return None
+    if db.scalar(select(ServiceCall.id).where(ServiceCall.request_id == req.id, ServiceCall.status == "en_cola").limit(1)):
+        return call_policy.next_open(now)
+    return None
+
+
+def _retry_pending(c: ServiceCall, now: datetime) -> bool:
+    return c.status == "sin_respuesta" and c.purpose == "cotizar" and c.attempt < MAX_ATTEMPTS and c.scheduled_for is not None
+
+
+# ------------------------------------------------------------------ marcar
 def dispatch(db: Session, req: ServiceRequest, voice: VoiceCaller) -> None:
-    """Marca la siguiente oleada: hasta `calls_wave` llamadas a la vez y sin pasar de las cotizaciones que se buscan."""
-    if not _is_real(voice) or req.status != "buscando":
+    """Marca la siguiente oleada: hasta `calls_wave` a la vez, solo en horario, sin pasar de la meta ni de los topes de costo."""
+    if not _is_real(voice):
+        return
+    now = _now()
+    if req.status == "buscando":
+        _dial_search(db, req, voice, now)
+        finalize(db, req)
+    elif req.status == "agendada":
+        _dial_pending(db, req, voice, now, ("agendar", "recordatorio"))
+
+
+def _dial_search(db, req, voice, now):
+    if not call_policy.in_window(now):
+        return
+    if call_policy.over_budget(db, req.id, now):
+        for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.status == "en_cola")):
+            c.status = "cancelada"
         return
     wave = get_settings().calls_wave
-    calls = list(db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id).order_by(ServiceCall.created_at, ServiceCall.label)))
+    calls = list(db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.purpose.in_(("cotizar", "fabricante")))
+                            .order_by(ServiceCall.created_at, ServiceCall.label)))
     quotes = db.scalar(select(func.count()).select_from(ServiceQuote).where(ServiceQuote.request_id == req.id)) or 0
     activas = sum(1 for c in calls if c.status == "llamando")
     for c in calls:
@@ -59,45 +129,167 @@ def dispatch(db: Session, req: ServiceRequest, voice: VoiceCaller) -> None:
             break
         ctx, phone = _ctx(db, req, c)
         p = db.get(ServiceProvider, c.provider_id) if c.provider_id else None
-        if p and p.do_not_call:
+        if p and (p.do_not_call or call_policy.cooling_down(db, p, req.id, now)):
             c.status = "omitida"
             continue
         if voice.dial(db, c, ctx, phone):
             activas += 1
         if c.status == "omitida" and c.purpose == "fabricante":
             break
-    finalize(db, req)
+
+
+def _dial_pending(db, req, voice, now, purposes):
+    if not call_policy.in_window(now):
+        return
+    for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.status == "en_cola", ServiceCall.purpose.in_(purposes))):
+        ctx, phone = _ctx(db, req, c)
+        voice.dial(db, c, ctx, phone)
 
 
 def finalize(db: Session, req: ServiceRequest) -> None:
     if req.status != "buscando":
         return
+    now = _now()
     calls = list(db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id)))
     if req.route == "fabricante":
         if calls and all(c.status in FINAL for c in calls) and not db.scalar(select(ServiceAppointment.id).where(ServiceAppointment.request_id == req.id)):
             req.status = "sin_cita"
         return
     n = db.scalar(select(func.count()).select_from(ServiceQuote).where(ServiceQuote.request_id == req.id)) or 0
-    en_vuelo = any(c.status == "llamando" for c in calls)
+    pendiente = any(c.status in ("llamando", "en_cola") or _retry_pending(c, now) for c in calls)
     if n >= req.target_quotes:
         for c in calls:
             if c.status == "en_cola":
                 c.status = "cancelada"
         req.status = "lista"
-    elif not en_vuelo and not any(c.status == "en_cola" for c in calls):
+    elif not pendiente:
         req.status = "lista" if n else "sin_respuesta"
 
 
+# ------------------------------------------------------------------ tick (Prefect / cron)
 def settle(db: Session, req: ServiceRequest, voice: VoiceCaller) -> None:
-    """Se llama al consultar la solicitud: libera llamadas atoradas, marca las que siguen y cierra la búsqueda."""
-    if not _is_real(voice) or req.status != "buscando":
+    """Se llama al consultar la solicitud: libera llamadas atoradas, marca las que siguen y cierra la busqueda."""
+    if not _is_real(voice) or req.status not in ("buscando", "agendada"):
         return
     now = _now()
     for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.status == "llamando")):
         if c.created_at and now - c.created_at > STUCK_AFTER:
             c.status = "error"
+    _retries(db, req, now)
+    _expire(db, req, now)
     dispatch(db, req, voice)
     db.commit()
+
+
+def _retries(db: Session, req: ServiceRequest, now: datetime) -> None:
+    """Segundo intento a quien no contesto, despues de un rato y solo si todavia hace falta."""
+    if req.status != "buscando" or req.route != "tecnico":
+        return
+    total = db.scalar(select(func.count()).select_from(ServiceCall).where(
+        ServiceCall.request_id == req.id, ServiceCall.status.in_(("llamando", "completada", "sin_respuesta", "rechazo", "error")))) or 0  # las ya marcadas
+    quotes = db.scalar(select(func.count()).select_from(ServiceQuote).where(ServiceQuote.request_id == req.id)) or 0
+    for c in list(db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.status == "sin_respuesta", ServiceCall.purpose == "cotizar"))):
+        if not _retry_pending(c, now) or c.scheduled_for > now or total >= 12 or quotes >= req.target_quotes:
+            continue
+        c.scheduled_for = None  # ya se programo el reintento
+        db.add(ServiceCall(request_id=req.id, provider_id=c.provider_id, purpose="cotizar", label=c.label, distance_km=c.distance_km,
+                           attempt=c.attempt + 1, status="en_cola"))
+        total += 1
+
+
+def _expire(db: Session, req: ServiceRequest, now: datetime) -> None:
+    if req.status != "buscando" or not req.started_at:
+        return
+    if now - req.started_at > timedelta(hours=get_settings().request_ttl_hours):
+        for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.status.in_(("en_cola", "llamando")))):
+            c.status = "cancelada"
+        for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.scheduled_for.is_not(None))):
+            c.scheduled_for = None
+        finalize(db, req)
+
+
+def tick(db: Session, voice: VoiceCaller) -> dict:
+    """Un paso del flujo: avanza todas las busquedas en curso, las citas por agendar y los recordatorios del dia siguiente."""
+    now = _now()
+    n = {"busquedas": 0, "recordatorios": 0}
+    for req in db.scalars(select(ServiceRequest).where(ServiceRequest.status.in_(("buscando", "agendada")))):
+        settle(db, req, voice)
+        n["busquedas"] += req.status == "buscando"
+    n["recordatorios"] = send_reminders(db, voice, now)
+    db.commit()
+    return n
+
+
+def send_reminders(db: Session, voice: VoiceCaller, now: datetime) -> int:
+    """Recordatorio al tecnico el dia anterior: desde 24 h antes y solo en horario de llamadas."""
+    if not _is_real(voice) or not call_policy.in_window(now):
+        return 0
+    sent = 0
+    for ap in db.scalars(select(ServiceAppointment).where(
+            ServiceAppointment.status == "confirmada", ServiceAppointment.provider_kind == "tecnico", ServiceAppointment.reminder_sent_at.is_(None),
+            ServiceAppointment.starts_at.is_not(None), ServiceAppointment.starts_at > now, ServiceAppointment.starts_at <= now + timedelta(hours=24))):
+        req = db.get(ServiceRequest, ap.request_id)
+        label = db.get(ServiceQuote, ap.quote_id).label if ap.quote_id else "Técnico"
+        call = ServiceCall(request_id=req.id, provider_id=ap.provider_id, purpose="recordatorio", label=label, status="en_cola")
+        db.add(call)
+        db.flush()
+        ctx, phone = _ctx(db, req, call)
+        voice.dial(db, call, ctx, phone)
+        ap.reminder_sent_at = now
+        sent += 1
+    return sent
+
+
+# ------------------------------------------------------------------ agendar
+def request_schedule_call(db: Session, req: ServiceRequest, ap: ServiceAppointment, voice: VoiceCaller, attempt: int = 1) -> None:
+    """Pide al asistente que llame al tecnico a confirmar la visita (solo con voz real)."""
+    if not _is_real(voice):
+        return
+    label = db.get(ServiceQuote, ap.quote_id).label
+    db.add(ServiceCall(request_id=req.id, provider_id=ap.provider_id, purpose="agendar", label=label, attempt=attempt, status="en_cola"))
+    db.flush()
+    _dial_pending(db, req, voice, _now(), ("agendar",))
+
+
+def _hours(d: date, h0: int | None, h1: int | None, slot: dict | None) -> tuple[datetime, datetime]:
+    w = (slot or {}).get("window")
+    a = h0 if h0 is not None and 0 <= h0 <= 23 else (14 if w == "tarde" else 9)
+    b = h1 if h1 is not None and a < h1 <= 24 else a + 3
+    start = datetime.combine(d, datetime.min.time(), MX).replace(hour=a)
+    return start, datetime.combine(d, datetime.min.time(), MX).replace(hour=min(b, 23), minute=59 if b >= 24 else 0)
+
+
+def apply_appointment(db: Session, req: ServiceRequest, call: ServiceCall, ap: ServiceAppointment, draft: AppointmentDraft, today: date) -> None:
+    call.status = "completada"
+    try:
+        day = date.fromisoformat(draft.date) if draft.date else None
+    except ValueError:
+        day = None
+    ok_day = day is not None and today <= day <= today + timedelta(days=45)
+    if draft.outcome == "confirma":
+        d = day if ok_day else (date.fromisoformat(ap.requested_slot["date"]) if ap.requested_slot else None)
+        if d is None:
+            return
+        ap.starts_at, ap.ends_at = _hours(d, draft.start_hour if ok_day else None, draft.end_hour if ok_day else None, ap.requested_slot)
+        ap.status, ap.address_shared_at = "confirmada", _now()
+        ap.proposed_slot = None
+    elif draft.outcome == "propone_otra" and ok_day and ap.proposal_round < MAX_ROUNDS:
+        ap.proposed_slot = {"date": day.isoformat(), "start_hour": draft.start_hour, "end_hour": draft.end_hour}
+        ap.proposal_round += 1
+        ap.status = "por_reprogramar"
+    else:  # rechaza, no pudo o ya se agotaron las rondas: se ofrece la siguiente cotizacion
+        _decline(db, req, ap)
+
+
+def _decline(db: Session, req: ServiceRequest, ap: ServiceAppointment) -> None:
+    ap.status = "cancelada"
+    if ap.quote_id:
+        q = db.get(ServiceQuote, ap.quote_id)
+        q.declined = True
+    req.status, req.chosen_quote_id = "lista", None
+    left = db.scalar(select(func.count()).select_from(ServiceQuote).where(ServiceQuote.request_id == req.id, ServiceQuote.declined.is_(False))) or 0
+    if left == 0:
+        req.status = "sin_respuesta"
 
 
 # ------------------------------------------------------------------ guardar resultados
@@ -147,7 +339,6 @@ def apply_quote(db: Session, req: ServiceRequest, call: ServiceCall, draft: Quot
 
 
 def apply_manufacturer(db: Session, req: ServiceRequest, call: ServiceCall, d: ManufacturerDraft, today: date) -> None:
-    from .requests_flow import TZ
     call.status = "completada"
     try:
         day = date.fromisoformat(d.date) if d.date else None
@@ -156,10 +347,7 @@ def apply_manufacturer(db: Session, req: ServiceRequest, call: ServiceCall, d: M
     if not d.scheduled or not day or not (today <= day <= today + timedelta(days=90)):
         req.status = "sin_cita"
         return
-    h0 = d.start_hour if d.start_hour is not None and 0 <= d.start_hour <= 23 else 9
-    h1 = d.end_hour if d.end_hour is not None and h0 < d.end_hour <= 24 else h0 + 4
-    start = datetime.combine(day, datetime.min.time(), TZ).replace(hour=h0)
-    end = datetime.combine(day, datetime.min.time(), TZ).replace(hour=min(h1, 23), minute=59 if h1 >= 24 else 0)
+    start, end = _hours(day, d.start_hour, d.end_hour, None)
     db.add(ServiceAppointment(request_id=req.id, provider_kind="fabricante", location_type="centro" if d.center_name else "domicilio",
                               center_name=scrub(d.center_name), center_address=d.center_address, folio=(d.folio or "")[:60] or None,
                               bring=[scrub(x) for x in d.bring][:6], starts_at=start, ends_at=end, status="confirmada"))
@@ -178,6 +366,26 @@ def _find_call(db: Session, call: dict) -> ServiceCall | None:
         return None
 
 
+def _open_appointment(db: Session, call: ServiceCall) -> ServiceAppointment | None:
+    return db.scalar(select(ServiceAppointment).where(ServiceAppointment.request_id == call.request_id, ServiceAppointment.provider_id == call.provider_id,
+                                                      ServiceAppointment.status == "por_confirmar").order_by(ServiceAppointment.created_at.desc()))
+
+
+def _no_answer(db: Session, call: ServiceCall, req: ServiceRequest, now: datetime) -> None:
+    call.status = "sin_respuesta"
+    if call.provider_id:
+        p = db.get(ServiceProvider, call.provider_id)
+        p.attempts, p.last_called_at = p.attempts + 1, now
+    if call.purpose == "cotizar" and call.attempt < MAX_ATTEMPTS:
+        call.scheduled_for = now + timedelta(minutes=get_settings().calls_retry_after_min)  # segundo intento mas tarde
+    elif call.purpose == "agendar":
+        ap = _open_appointment(db, call)
+        if ap and call.attempt < MAX_ATTEMPTS:
+            db.add(ServiceCall(request_id=req.id, provider_id=call.provider_id, purpose="agendar", label=call.label, attempt=call.attempt + 1, status="en_cola"))
+        elif ap:
+            _decline(db, req, ap)  # no se pudo confirmar: se ofrece otra cotizacion
+
+
 def handle_event(db: Session, payload: dict, extractor: Extractor, voice: VoiceCaller) -> str:
     """Devuelve qué se hizo (para el log y las pruebas). Es idempotente: una llamada ya cerrada no se vuelve a procesar."""
     event, data = payload.get("event"), payload.get("call") or {}
@@ -189,6 +397,7 @@ def handle_event(db: Session, payload: dict, extractor: Extractor, voice: VoiceC
         return "ignorada"
     if call.status in FINAL:
         return "repetida"
+    now = _now()
     reason = data.get("disconnection_reason")
     if data.get("transcript"):
         call.transcript = str(data["transcript"])[:60_000]
@@ -198,19 +407,24 @@ def handle_event(db: Session, payload: dict, extractor: Extractor, voice: VoiceC
     if isinstance(cost, (int, float)):
         call.cost_usd = round(cost / 100, 4)
     if reason in NO_ANSWER:
-        call.status = "sin_respuesta"
-        if call.provider_id:
-            p = db.get(ServiceProvider, call.provider_id)
-            p.attempts, p.last_called_at = p.attempts + 1, _now()
+        _no_answer(db, call, req, now)
     elif event == "call_analyzed":
-        today = _now().astimezone(__import__("zoneinfo").ZoneInfo("America/Mexico_City")).date()
+        today = now.astimezone(MX).date()
         text = call.transcript or ""
         if len(text.strip()) < 40:
-            call.status = "sin_respuesta"
+            _no_answer(db, call, req, now)
+        elif call.purpose == "recordatorio":
+            call.status = "completada"
         else:
             try:
                 if call.purpose == "fabricante":
                     apply_manufacturer(db, req, call, extractor.manufacturer(text, today), today)
+                elif call.purpose == "agendar":
+                    ap = _open_appointment(db, call)
+                    if ap:
+                        apply_appointment(db, req, call, ap, extractor.appointment(text, today, _slot_text(ap.requested_slot)), today)
+                    else:
+                        call.status = "completada"
                 else:
                     apply_quote(db, req, call, extractor.quote(text, req.scope_text or "", today), today)
             except Exception:

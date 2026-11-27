@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     retell_agent_id: str = ""  # agente cotizador
     retell_agent_id_fabricante: str = ""  # agente para el centro de atencion del fabricante (opcional: usa el cotizador si falta)
     retell_from_number: str = ""  # numero E.164 desde el que se llama
+    retell_agent_id_agenda: str = ""  # agente que agenda la visita y hace el recordatorio (usa el cotizador si falta)
+    calls_window_enabled: bool = True  # solo se llama de lunes a sabado de 9:00 a 19:00 (hora de Mexico)
+    calls_window_start: int = 9
+    calls_window_end: int = 19
+    calls_retry_after_min: int = 120  # segundo intento a quien no contesto
+    calls_provider_cooldown_days: int = 7  # un tecnico no recibe llamadas de solicitudes distintas mas de una vez en este plazo
+    request_ttl_hours: int = 24  # la busqueda se cierra con lo que haya
+    max_cost_per_request_usd: float = 3.0
+    max_cost_per_day_usd: float = 15.0
     calls_wave: int = 3  # llamadas simultaneas por solicitud
     quote_model: str = "claude-sonnet-5-5"  # extrae la cotizacion de la transcripcion
     fake_voice_step_seconds: int = 4  # cada cuanto "termina" una llamada falsa

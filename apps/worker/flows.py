@@ -24,3 +24,19 @@ def read_plate(asset_id: str, image_id: str):
 @flow(name="leer-placa")
 def leer_placa(asset_id: str, image_id: str):
     return read_plate(asset_id, image_id)
+
+
+@task(retries=1, retry_delay_seconds=15)
+def avanzar_llamadas() -> dict:
+    from app.services.call_results import tick
+    from app.services.voice import get_voice
+    with SessionLocal() as db:
+        return tick(db, get_voice())
+
+
+@flow(name="cotizar-agendar-tick")
+def cotizar_agendar_tick():
+    """Un paso: avanza busquedas de cotizaciones (oleadas, horario, reintentos, topes), citas por confirmar y recordatorios.
+    Programarlo cada minuto: prefect deployment (cron '* * * * *'). Sin Prefect alojado, el mismo paso corre con `python -m admin.tick` en cron.
+    Postgres es la verdad; este flujo solo empuja y es idempotente."""
+    return avanzar_llamadas()

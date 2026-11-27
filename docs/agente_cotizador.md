@@ -33,3 +33,20 @@ URL: `https://api.nidoguard.com/webhooks/retell`, eventos `call_started`, `call_
 ## Extracto para la persona (actualizado)
 La persona NO recibe la llamada ni la transcripción. Recibe `excerpt`: lo que dijo el técnico solo sobre trabajo, precio, visita, garantía y disponibilidad, casi textual, sin nombre del negocio, teléfonos ni direcciones. Lo escribe el extractor (`technician_said`); se descarta si no sale de la transcripción (70 % de palabras en común) y se limpia con `scrub` y el nombre del negocio.
 Teléfono: se guarda en el perfil (PUT /me/phone). Al agendar la persona decide si el técnico lo recibe al confirmar (`share_phone`). La llamada de confirmación (etapa C) debe usarlo solo si `share_phone` es verdadero.
+
+## Agente de agenda (segundo agente de Retell, `RETELL_AGENT_ID_AGENDA`) - etapa C
+Variables: `tipo` (agendar|recordatorio), `equipo`, `trabajo`, `precio`, `franja_elegida`, `zona`, `negocio`; solo en `agendar`: `direccion` exacta, `nombre` de pila y, si la persona lo autorizó, `telefono_cliente`. En `recordatorio` NUNCA va la dirección.
+Guion `agendar`: saluda y pregunta si habla con {{negocio}}; recuerda el trabajo y el precio que dio; pide confirmar la visita para {{franja_elegida}}; si acepta, pide hora aproximada; si no puede, pide otra fecha y hora concretas; da la dirección y el nombre de pila solo si confirma; si hay `telefono_cliente`, ofrécelo para avisos. Repite lo acordado. Aclara que NidoGuard no cobra.
+Guion `recordatorio`: recuerda la visita de mañana ({{franja_elegida}}) y pregunta si sigue en pie; si no puede, que lo diga.
+Resultados (extractor `registrar_visita`): confirma | propone_otra | rechaza | sin_resultado. Máximo 2 propuestas; no contesta: 2 intentos y se ofrece otra cotización.
+
+## Reglas de llamadas (etapa C)
+Solo lunes a sábado 9:00 a 19:00 (hora de México); fuera de horario la búsqueda espera y la app dice cuándo sigue. Máximo 2 intentos por técnico (el segundo 2 h después), 12 llamadas por solicitud, un técnico no recibe llamadas de solicitudes distintas más de una vez cada 7 días (los técnicos de prueba están exentos), tope de costo por solicitud (US$3) y por día (US$15), y la búsqueda se cierra a las 24 h con lo que haya. `python -m admin.tick` (o el flujo `cotizar-agendar-tick` de Prefect) avanza todo cada minuto.
+
+## Prueba con tu número (técnico de prueba)
+1. En Mi hogar guarda tu dirección de Tepoztlán (con ubicación) y tu teléfono.
+2. `cd apps/api && python -m admin.proveedores prueba --telefono "<tu número a 10 dígitos>"` (crea un técnico falso con tu número en tu dirección).
+3. En el `.env`: `VOICE=retell`, `CALLS_ENABLED=true`, `CALLS_ALLOWLIST=+52<tu número>`, `CALLS_WINDOW_ENABLED=false` si pruebas fuera de horario. A nadie más se le llama.
+4. Pide un servicio desde la app, y en otra terminal `python -m admin.tick` cada minuto (o déjalo en cron). Contesta tú el teléfono como si fueras el técnico: da precio y horarios; luego agenda y contesta la segunda llamada.
+5. Al terminar: `python -m admin.proveedores quitar-prueba` y `CALLS_ENABLED=false`.
+Fabricantes: `python -m admin.fabricantes agregar --marca <Marca> --telefono ...` y `verificar` (una persona verifica el número antes de usarlo).

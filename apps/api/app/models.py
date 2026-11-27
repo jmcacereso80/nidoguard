@@ -436,6 +436,7 @@ class ServiceQuote(Base):
     payment_methods: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
     matches: Mapped[str | None] = mapped_column(String(10))  # igual | parcial | distinto
     summary: Mapped[str | None] = mapped_column(Text)
+    declined: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))  # el tecnico no pudo o no contesto al agendar
     excerpt: Mapped[str | None] = mapped_column(Text)  # lo que dijo el tecnico sobre trabajo y precio, sin nombres ni datos
     confidence: Mapped[dict] = mapped_column(JSONB, default=dict, server_default=text("'{}'::jsonb"))
     created_at: Mapped[datetime] = now()
@@ -461,6 +462,9 @@ class ServiceAppointment(Base):
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(16), default="por_confirmar")
     registered_by_user: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    proposal_round: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))  # veces que el tecnico propuso otra hora
+    proposed_slot: Mapped[dict | None] = mapped_column(JSONB)  # {date, start_hour, end_hour}
+    reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     share_phone: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     address_shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     final_cost: Mapped[float | None] = mapped_column(Float)
@@ -476,4 +480,21 @@ class Consent(Base):
     request_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("service_requests.id", ondelete="SET NULL"))
     type: Mapped[str] = mapped_column(String(40))  # llamar_en_su_nombre | compartir_datos_para_visita | compartir_datos_con_fabricante
     text_version: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = now()
+
+
+class ManufacturerServiceLine(Base):
+    """Linea de servicio de una marca. Solo se llama si status == 'verificada' (la verifica una persona)."""
+    __tablename__ = "manufacturer_service_lines"
+    id: Mapped[uuid.UUID] = pk()
+    brand_key: Mapped[str] = mapped_column(String(80), unique=True)
+    brand: Mapped[str] = mapped_column(String(120))
+    phone_e164: Mapped[str] = mapped_column(String(20))
+    hours: Mapped[str | None] = mapped_column(String(200))
+    channel: Mapped[str] = mapped_column(String(20), default="telefono", server_default="telefono")
+    requires_account_holder: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    data_requested: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    source: Mapped[str | None] = mapped_column(String(300))
+    status: Mapped[str] = mapped_column(String(14), default="por_verificar", server_default="por_verificar")  # por_verificar | verificada | descartada
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = now()

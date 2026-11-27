@@ -43,6 +43,11 @@ class ScheduleIn(BaseModel):
     share_phone: bool = False
 
 
+class RespondIn(BaseModel):
+    accept: bool = False
+    slot_index: int | None = Field(default=None, ge=0, le=10)
+
+
 class RegisterIn(BaseModel):
     date: date
     window: str = Field(pattern="^(manana|tarde)$")
@@ -166,7 +171,17 @@ def get_quote(request_id: uuid.UUID, quote_id: uuid.UUID, org: Organization = De
 def schedule(request_id: uuid.UUID, body: ScheduleIn, user: User = Depends(current_user), org: Organization = Depends(current_org),
              db: Session = Depends(get_db)):
     r = _req(db, org, request_id)
-    F.schedule(db, r, user, org, body.quote_id, body.slot_index, body.consent, body.share_phone)
+    F.schedule(db, r, user, org, body.quote_id, body.slot_index, body.consent, body.share_phone, get_voice())
+    return F.request_out(db, r)
+
+
+@router.post("/appointments/{appointment_id}/respond")
+def respond_appointment(appointment_id: uuid.UUID, body: RespondIn, org: Organization = Depends(current_org), db: Session = Depends(get_db),
+                        voice: VoiceCaller = Depends(get_voice)):
+    ap = _appointment(db, org, appointment_id)
+    r = db.get(ServiceRequest, ap.request_id)
+    F.respond(db, r, ap, body.accept, body.slot_index, voice)
+    db.commit()
     return F.request_out(db, r)
 
 

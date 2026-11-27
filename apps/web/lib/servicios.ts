@@ -18,17 +18,17 @@ export type Appointment = {
   id: string; kind: "tecnico" | "fabricante"; status: "por_confirmar" | "confirmada" | "por_reprogramar" | "cancelada" | "realizada";
   location_type: "domicilio" | "centro"; center_name: string | null; center_address: string | null; folio: string | null; bring: string[];
   starts_at: string | null; ends_at: string | null; requested_slot: Slot | null; registered_by_user: boolean; final_cost: number | null;
-  technician_name: string | null; contact_shared: boolean;
+  technician_name: string | null; contact_shared: boolean; proposed_slot: { date: string; start_hour: number | null; end_hour: number | null } | null; proposal_round: number;
   agreed: { label: string; scope: string | null; price_min: number | null; price_max: number | null; price_type: PriceType | null; visit_fee: number | null;
-            warranty_days: number | null; invoice: boolean | null; rating: number | null; reviews: number | null } | null;
+            warranty_days: number | null; invoice: boolean | null; rating: number | null; reviews: number | null; slots: Slot[] } | null;
 };
 export type ServiceRequest = {
   id: string; origin: "tarea" | "libre"; route: Route; status: ReqStatus; equipment_label: string | null; asset_id: string | null;
   care_task_id: string | null; symptom: string | null; scope_text: string | null; specialty: string | null; urgency: Urgency;
   safety: Safety | null; warranty: { ends_on: string; days_left: number; provider: string | null } | null;
-  zone: string | null; property_id: string | null; address_name: string | null; address_complete: boolean; radius_km: number; target_quotes: number; created_at: string; quote_count: number;
+  resumes_at: string | null; zone: string | null; property_id: string | null; address_name: string | null; address_complete: boolean; radius_km: number; target_quotes: number; created_at: string; quote_count: number;
   appointment: Appointment | null; quotes?: Quote[]; calls?: CallRow[];
-  manufacturer: { brand: string | null; model: string | null; serial: string | null; holder_name: string | null; phone: string | null; address: string | null; warranty_ends_on: string | null } | null;
+  manufacturer: { line: { phone: string; hours: string | null; requires_holder: boolean } | null; brand: string | null; model: string | null; serial: string | null; holder_name: string | null; phone: string | null; address: string | null; warranty_ends_on: string | null } | null;
 };
 export type Address = { street: string | null; colony: string | null; postal_code: string | null; city: string | null; state: string | null; search_radius_km: number; complete: boolean };
 

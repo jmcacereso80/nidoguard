@@ -141,8 +141,9 @@ export function Progreso({ r, act, busy, onSee }: P & { onSee: () => void }) {
         <p className="mt-1 text-[26px] font-extrabold leading-tight">{p.got} de {p.target} <span className="text-[15px] font-bold text-muted">cotizaciones</span></p>
         <div role="progressbar" aria-valuemin={0} aria-valuemax={p.target} aria-valuenow={p.got} aria-label="Cotizaciones recibidas" className="mt-3 h-2.5 overflow-hidden rounded-full bg-navy/10">
           <div className="h-full rounded-full" style={{ width: `${p.pct}%`, background: "linear-gradient(90deg,#7399B5,#183B56)" }} /></div>
-        <p className="mt-2 text-[12.5px] text-muted">Llevamos {p.done} de {p.total} llamadas. Solo llamamos de 9:00 a 19:00.</p>
+        <p className="mt-2 text-[12.5px] text-muted">Llevamos {p.done} de {p.total} llamadas. Solo llamamos de lunes a sábado, de 9:00 a 19:00.</p>
       </div>
+      {r.resumes_at && <div className="mt-3"><Callout icon="clock"><b>Seguimos {new Date(r.resumes_at).toLocaleString("es-MX", { weekday: "long", hour: "numeric", minute: "2-digit", timeZone: "America/Mexico_City" })}.</b> Ya es fuera de horario de llamadas; te avisamos aquí en cuanto haya cotizaciones.</Callout></div>}
       <Label>Llamadas</Label>
       <div className="g rounded-[26px] px-4 py-1">
         {shown.map((c, i) => {
@@ -320,6 +321,18 @@ export function Visita(p: P) {
             {a.visit_fee ? `, más ${money(a.visit_fee)} de visita` : ", sin cargo por visita"}.{a.warranty_days ? ` Garantía de ${a.warranty_days} días` : ""}{a.invoice ? " y factura." : "."}</p>
         </div>
       )}
+      {ap.status === "por_reprogramar" && ap.proposed_slot && (
+        <div className="mt-4">
+          <Callout icon="clock"><b>El técnico propone otro horario:</b> {longDay(`${ap.proposed_slot.date}T12:00:00-06:00`)}{ap.proposed_slot.start_hour != null ? `, desde las ${ap.proposed_slot.start_hour}:00` : ""}.</Callout>
+          <Actions>
+            <Btn disabled={p.busy} onClick={() => act(`/appointments/${ap.id}/respond`, { accept: true })}><Icon name="check" size={19} stroke={2.4} />Aceptar este horario</Btn>
+          </Actions>
+          {ap.proposal_round < 2 && (ap.agreed?.slots?.length ?? 0) > 0 && (<><Label>O elige otra de las que dio</Label>
+            <div className="g flex flex-wrap gap-2 rounded-[26px] p-3.5">{ap.agreed!.slots.map((s, i) => (
+              <button key={`${s.date}${s.window}`} type="button" disabled={p.busy} onClick={() => act(`/appointments/${ap.id}/respond`, { accept: false, slot_index: i })} className="chip">{slotChip(s)}</button>))}</div></>)}
+          <TextLink onClick={() => act(`/appointments/${ap.id}/respond`, { accept: false })} danger>No me sirve, ver otras cotizaciones</TextLink>
+        </div>
+      )}
       <Label>Seguimiento</Label>
       <Timeline rows={[{ state: "ok", text: "Visita pedida" }, { state: confirmada ? "ok" : "now", text: confirmada ? "Confirmada con el técnico" : "Esperando confirmación del técnico" }, { state: "wait", text: "Recordatorio el día anterior" }]} />
       <div className="mt-3"><NoCobro /></div>
@@ -367,6 +380,13 @@ export function FabricanteManual({ r, act, busy, err }: P) {
   return (
     <div>
       <div className="mt-3"><Callout>No pudimos agendar con el fabricante: puede que pida que el titular hable directamente. Te dejamos todo listo para que agendes en un minuto.</Callout></div>
+      {m?.line && (<>
+        <Label>Línea de servicio de {m.brand}</Label>
+        <div className="g rounded-[26px] p-4">
+          <a href={`tel:${m.line.phone}`} className="text-[18px] font-extrabold text-navy underline">{m.line.phone.replace(/^\+52/, "")}</a>
+          {m.line.hours && <p className="mt-1 text-[13px] text-muted">Horario: {m.line.hours}</p>}
+          {m.line.requires_holder && <p className="mt-1 text-[13px] text-[#8F5A1F]">Suelen pedir que hable el titular de la compra.</p>}
+        </div></>)}
       <Label>Esto te van a pedir</Label>
       <div className="g rounded-[26px] px-4 py-1.5">
         {filas.filter(([, v]) => v).map(([k, v], i) => (
@@ -376,7 +396,7 @@ export function FabricanteManual({ r, act, busy, err }: P) {
               onClick={() => { navigator.clipboard?.writeText(v!); setCopied(k); }}><Icon name={copied === k ? "check" : "copy"} size={18} /></button></div></div>
         ))}
       </div>
-      <Note icon="search">Busca la línea de servicio en la garantía, el manual o la página del fabricante.</Note>
+      {!m?.line && <Note icon="search">Busca la línea de servicio en la garantía, el manual o la página del fabricante.</Note>}
       <Label>Cuando tengas tu cita, dinos para cuándo quedó</Label>
       <div className="g flex flex-col gap-2.5 rounded-[26px] p-3.5">
         <label className="sr-only" htmlFor="fecha">Fecha de la cita</label><input id="fecha" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="field" />
