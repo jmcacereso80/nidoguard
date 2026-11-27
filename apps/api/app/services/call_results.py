@@ -51,6 +51,12 @@ def _money(q: ServiceQuote) -> str:
     return f"{q.price_min:.0f} pesos" if q.price_max in (None, q.price_min) else f"entre {q.price_min:.0f} y {q.price_max:.0f} pesos"
 
 
+def _equipo_datos(db: Session, req: ServiceRequest) -> dict:
+    """Marca y modelo del equipo: el tecnico los necesita para cotizar (no identifican a la persona; la serie no se da)."""
+    a = db.get(EquipmentAsset, req.asset_id) if req.asset_id else None
+    return {"marca": a.brand if a else None, "modelo": a.model if a else None}
+
+
 def _ctx(db: Session, req: ServiceRequest, call: ServiceCall) -> tuple[CallContext, str | None]:
     zone = ", ".join(x for x in [req.zone_colony, req.zone_city] if x)
     if call.purpose == "fabricante":
@@ -67,7 +73,7 @@ def _ctx(db: Session, req: ServiceRequest, call: ServiceCall) -> tuple[CallConte
         ap = db.scalar(select(ServiceAppointment).where(ServiceAppointment.request_id == req.id, ServiceAppointment.provider_id == call.provider_id)
                        .order_by(ServiceAppointment.created_at.desc()))
         q = db.get(ServiceQuote, ap.quote_id) if ap and ap.quote_id else None
-        extra = {"precio": _money(q) if q else "", "franja_elegida": _slot_text(ap.requested_slot if ap else None)}
+        extra = {"precio": _money(q) if q else "", "franja_elegida": _slot_text(ap.requested_slot if ap else None), **_equipo_datos(db, req)}
         if call.purpose == "agendar":  # la direccion exacta y el nombre de pila solo salen aqui, despues de que la persona eligio
             prop = db.get(Property, req.property_id) if req.property_id else None
             user = db.get(User, req.created_by) if req.created_by else None
@@ -82,7 +88,7 @@ def _ctx(db: Session, req: ServiceRequest, call: ServiceCall) -> tuple[CallConte
         return CallContext(kind=call.purpose, service=q.scope_quoted if q else req.scope_text, equipment=req.equipment_label or "equipo", symptom=None,
                            urgency=req.urgency, zone=zone, business_name=p.name, extra=extra), p.phone_e164
     return CallContext(kind="cotizar", service=req.scope_text, equipment=req.equipment_label or "equipo", symptom=req.symptom,
-                       urgency=req.urgency, zone=zone, business_name=p.name), p.phone_e164
+                       urgency=req.urgency, zone=zone, business_name=p.name, extra=_equipo_datos(db, req)), p.phone_e164
 
 
 def resumes_at(db: Session, req: ServiceRequest, voice_name: str) -> datetime | None:

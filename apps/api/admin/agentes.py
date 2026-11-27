@@ -12,6 +12,7 @@ from app.config import get_settings
 API = "https://api.retellai.com"
 MARCA = "## REGLAS DE VOZ (NidoGuard)"
 MARCA_CITA = "## REGLAS DE LA CITA (NidoGuard)"
+MARCA_EQUIPO = "## DATOS DEL EQUIPO (NidoGuard)"
 REGLAS = f"""
 
 {MARCA}
@@ -20,6 +21,13 @@ REGLAS = f"""
 - Si la otra persona está pensando o buscando un dato, no llenes el silencio. Si pasan más de 6 segundos, di una sola vez: "Sin prisa, aquí sigo."
 - Haz una pregunta a la vez y espera la respuesta completa.
 - No uses muletillas ("ajá", "mjm") mientras la otra persona habla.
+"""
+REGLAS_EQUIPO = """
+
+## DATOS DEL EQUIPO (NidoGuard)
+- El equipo es {{equipo}}. Marca: {{marca}}. Modelo: {{modelo}}.
+- Si el técnico pregunta por la marca o el modelo, díselos tal cual. Si dicen "sin dato", dile que no los tienes y que los puede ver en la placa del equipo durante la visita. NUNCA inventes una marca, un modelo ni un número de serie.
+- Si pregunta algo más del equipo que no tengas (año, número de serie, si tiene garantía), dile que no lo tienes a la mano; no lo supongas.
 """
 REGLAS_AGENDA = """
 
@@ -66,8 +74,8 @@ def main():
             continue
         httpx.patch(f"{API}/update-agent/{aid}", json=AJUSTES, headers=h, timeout=20).raise_for_status()
         if llm_id:
-            base = (prompt or "").split(MARCA)[0].split(MARCA_CITA)[0].rstrip()  # quita nuestros bloques anteriores y los vuelve a poner (asi se pueden actualizar)
-            nuevo = base + REGLAS + (REGLAS_AGENDA if aid == s.retell_agent_id_agenda and aid != s.retell_agent_id else "")
+            base = (prompt or "").split(MARCA)[0].split(MARCA_CITA)[0].split(MARCA_EQUIPO)[0].rstrip()  # quita nuestros bloques anteriores y los vuelve a poner (asi se pueden actualizar)
+            nuevo = base + REGLAS + (REGLAS_EQUIPO if aid != s.retell_agent_id_fabricante else "") + (REGLAS_AGENDA if aid == s.retell_agent_id_agenda and aid != s.retell_agent_id else "")
             if nuevo != (prompt or ""):
                 httpx.patch(f"{API}/update-retell-llm/{llm_id}", json={"general_prompt": nuevo}, headers=h, timeout=20).raise_for_status()
         print("  aplicado.")

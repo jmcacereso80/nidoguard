@@ -51,6 +51,8 @@ def dynamic_variables(ctx: CallContext) -> dict[str, str]:
     """Retell solo acepta texto. Nunca va la direccion exacta a un tecnico: solo la zona."""
     v = {"tipo": ctx.kind, "equipo": ctx.equipment, "trabajo": ctx.service or "", "sintoma": ctx.symptom or "",
          "urgencia": ctx.urgency or "", "zona": ctx.zone, "negocio": ctx.business_name or ""}
+    if ctx.kind in ("cotizar", "agendar", "recordatorio"):  # el agente siempre ve estos dos datos; si faltan, lo dice y no inventa
+        v["marca"], v["modelo"] = "sin dato", "sin dato"
     for k, val in ctx.extra.items():
         if k in {"marca", "modelo", "serie", "fecha_compra", "titular", "direccion", "telefono_titular", "franja_elegida", "precio", "nombre", "telefono_cliente", "acceso"} and val:
             v[k] = str(val)

@@ -165,6 +165,8 @@ def test_la_direccion_solo_sale_en_la_llamada_de_agendar(real, db):
     rid, s = agendada(c, db, tokens, enviados, Ext(appt=AppointmentDraft(outcome="confirma")))
     antes, agenda = enviados[:-1], enviados[-1]
     assert "Gabriel Mancera" not in json.dumps(antes)
+    cot = antes[0]["retell_llm_dynamic_variables"]
+    assert cot["marca"] == "Carrier" and cot["modelo"] == "X1" and "serie" not in cot  # el tecnico recibe marca y modelo; nunca la serie
     v = agenda["retell_llm_dynamic_variables"]
     assert v["tipo"] == "agendar" and "Gabriel Mancera" in v["direccion"] and v["telefono_cliente"] == "+525512345678" and v["franja_elegida"] and v["acceso"] == "Caseta: registrar INE"
     assert s["appointment"]["status"] == "por_confirmar" and s["appointment"]["technician_name"] is None

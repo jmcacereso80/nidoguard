@@ -4,6 +4,7 @@ Estado: escrito por Claude en el chat; el CLI lo da de alta en Retell y prueba c
 
 ## Variables que recibe (`retell_llm_dynamic_variables`, todas texto)
 `tipo` (cotizar|fabricante), `equipo`, `trabajo`, `sintoma`, `urgencia`, `zona` (colonia y ciudad, nunca la dirección), `negocio`.
+Cotizar, agendar y recordatorio: además `marca` y `modelo` del equipo ("sin dato" si faltan; el agente no inventa y nunca recibe la serie). `python -m admin.agentes ajustar` agrega al prompt el bloque "DATOS DEL EQUIPO".
 Fabricante: además `marca`, `modelo`, `serie`, `titular`, `direccion`, `telefono_titular`.
 
 ## Prompt del agente - técnico (es-MX)
