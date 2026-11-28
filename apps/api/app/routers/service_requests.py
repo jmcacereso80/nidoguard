@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,6 +10,8 @@ from ..db import get_db
 from ..models import Organization, ServiceAppointment, ServiceQuote, ServiceRequest, User
 from ..security import current_org, current_user
 from ..services import call_results
+from ..services.line_finder import LineFinder, get_line_finder
+from ..services.manufacturers import brand_key, lookup_in_background
 from ..services import requests_flow as F
 from ..services.scope import ScopeWriter, get_scope_writer
 from ..services.voice import VoiceCaller, get_voice
@@ -79,18 +81,30 @@ def _req(db: Session, org: Organization, request_id: uuid.UUID, advance: bool = 
     return r
 
 
+def _buscar_linea(bg: BackgroundTasks, db: Session, r: ServiceRequest, finder: LineFinder) -> None:
+    """Si la solicitud va con el fabricante, busca en segundo plano la linea de servicio de la marca (una vez por marca)."""
+    if r.route != "fabricante" or not r.asset_id:
+        return
+    from ..models import EquipmentAsset
+    a = db.get(EquipmentAsset, r.asset_id)
+    if a and brand_key(a.brand):
+        bg.add_task(lookup_in_background, a.brand, finder)
+
+
 @router.post("/service-requests", status_code=201)
-def create(body: NewRequest, user: User = Depends(current_user), org: Organization = Depends(current_org),
-           db: Session = Depends(get_db), writer: ScopeWriter = Depends(get_scope_writer)):
+def create(body: NewRequest, bg: BackgroundTasks, user: User = Depends(current_user), org: Organization = Depends(current_org),
+           db: Session = Depends(get_db), writer: ScopeWriter = Depends(get_scope_writer), finder: LineFinder = Depends(get_line_finder)):
     r, _ = F.create_request(db, org, user, asset_id=body.asset_id, equipment_label=body.equipment_label,
                             symptom=body.symptom, urgency=body.urgency, writer=writer)
+    _buscar_linea(bg, db, r, finder)
     return F.request_out(db, r)
 
 
 @router.post("/care/{task_id}/quote-request")
-def from_task(task_id: uuid.UUID, user: User = Depends(current_user), org: Organization = Depends(current_org),
-              db: Session = Depends(get_db), writer: ScopeWriter = Depends(get_scope_writer)):
+def from_task(task_id: uuid.UUID, bg: BackgroundTasks, user: User = Depends(current_user), org: Organization = Depends(current_org),
+              db: Session = Depends(get_db), writer: ScopeWriter = Depends(get_scope_writer), finder: LineFinder = Depends(get_line_finder)):
     r, created = F.create_request(db, org, user, care_task_id=task_id, writer=writer)
+    _buscar_linea(bg, db, r, finder)
     return F.request_out(db, r)
 
 
@@ -110,7 +124,8 @@ def get_request(request_id: uuid.UUID, org: Organization = Depends(current_org),
 
 
 @router.post("/service-requests/{request_id}/scope")
-def set_scope(request_id: uuid.UUID, body: ScopeIn, org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+def set_scope(request_id: uuid.UUID, body: ScopeIn, bg: BackgroundTasks, org: Organization = Depends(current_org), db: Session = Depends(get_db),
+              finder: LineFinder = Depends(get_line_finder)):
     r = _req(db, org, request_id, advance=False)
     if r.status != "borrador":
         raise HTTPException(409, "Esta solicitud ya está en marcha.")
@@ -122,6 +137,34 @@ def set_scope(request_id: uuid.UUID, body: ScopeIn, org: Organization = Depends(
         r.urgency = body.urgency
     if body.property_id:
         F.set_property(db, org, r, body.property_id)
+    db.commit()
+    _buscar_linea(bg, db, r, finder)
+    return F.request_out(db, r)
+
+
+class LineFeedbackIn(BaseModel):
+    worked: bool
+
+
+@router.post("/service-requests/{request_id}/line-feedback")
+def line_feedback(request_id: uuid.UUID, body: LineFeedbackIn, org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+    """La persona dice si la linea de servicio que le mostramos era la correcta. Sirve para confiar o descartar el numero."""
+    from ..models import EquipmentAsset, ManufacturerServiceLine
+    r = _req(db, org, request_id, advance=False)
+    a = db.get(EquipmentAsset, r.asset_id) if r.asset_id else None
+    line = db.scalar(select(ManufacturerServiceLine).where(ManufacturerServiceLine.brand_key == brand_key(a.brand if a else None),
+                                                          ManufacturerServiceLine.status.in_(("por_verificar", "verificada")))) if a else None
+    if r.route != "fabricante" or line is None:
+        raise HTTPException(404, "No hay una línea de servicio para esta solicitud.")
+    if r.line_feedback is not None:
+        raise HTTPException(409, "Ya nos dijiste cómo te fue con esta línea. Gracias.")
+    r.line_feedback = body.worked
+    if body.worked:
+        line.confirmed_count += 1
+    else:
+        line.wrong_count += 1
+        if line.status == "por_verificar" and line.wrong_count >= 2 and line.wrong_count > line.confirmed_count:
+            line.status = "descartada"  # varias personas dijeron que no era: deja de mostrarse hasta que alguien la revise
     db.commit()
     return F.request_out(db, r)
 

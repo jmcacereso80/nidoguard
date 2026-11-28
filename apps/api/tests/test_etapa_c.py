@@ -353,7 +353,7 @@ def test_linea_sin_verificar_nunca_se_llama(real, db):
     assert r["manufacturer"]["line"] is None
     c.post(f"/service-requests/{r['id']}/start", json={"consent": True, "phone": "55 1234 5678"})
     v = c.get(f"/service-requests/{r['id']}").json()
-    assert enviados == [] and v["status"] == "sin_cita" and v["manufacturer"]["reason"] == "sin_linea"  # la razón real: no tenemos la línea de esa marca
+    assert enviados == [] and v["status"] == "sin_cita" and v["manufacturer"]["reason"] == "linea_por_verificar"  # la línea existe pero aún no la verifica una persona: no se llama
 
 
 def test_fabricante_con_linea_verificada_agenda_por_webhook(real, db):

@@ -390,6 +390,7 @@ class ServiceRequest(Base):
     target_quotes: Mapped[int] = mapped_column(Integer, default=5, server_default=text("5"))
     chosen_quote_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    line_feedback: Mapped[bool | None] = mapped_column(Boolean)  # la persona dijo si la linea del fabricante le funciono
     created_at: Mapped[datetime] = now()
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -497,12 +498,16 @@ class ManufacturerServiceLine(Base):
     id: Mapped[uuid.UUID] = pk()
     brand_key: Mapped[str] = mapped_column(String(80), unique=True)
     brand: Mapped[str] = mapped_column(String(120))
-    phone_e164: Mapped[str] = mapped_column(String(20))
+    phone_e164: Mapped[str | None] = mapped_column(String(20))  # vacio cuando se busco y no se encontro (status sin_resultado)
     hours: Mapped[str | None] = mapped_column(String(200))
     channel: Mapped[str] = mapped_column(String(20), default="telefono", server_default="telefono")
     requires_account_holder: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     data_requested: Mapped[list] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
     source: Mapped[str | None] = mapped_column(String(300))
-    status: Mapped[str] = mapped_column(String(14), default="por_verificar", server_default="por_verificar")  # por_verificar | verificada | descartada
+    status: Mapped[str] = mapped_column(String(14), default="por_verificar", server_default="por_verificar")  # por_verificar | verificada | descartada | sin_resultado
+    found_by: Mapped[str | None] = mapped_column(String(10))  # ia | admin
+    found_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # cuando se busco (sirve para no repetir la busqueda cada vez)
+    confirmed_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))  # personas a las que les contestaron en esa linea
+    wrong_count: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))  # personas que dijeron que no era esa linea
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = now()

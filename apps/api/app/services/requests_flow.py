@@ -3,6 +3,7 @@ Con la voz falsa todo avanza solo con el tiempo (advance_fake), asi se recorre e
 Regla de privacidad: lo que se entrega a las personas usuarias nunca incluye telefono, direccion, sitio ni nombre del tecnico
 (el nombre solo cuando la visita ya esta confirmada)."""
 import uuid
+from urllib.parse import urlparse
 from .people import full_name
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -15,7 +16,7 @@ from ..config import get_settings
 from ..models import (Space, User, AssetEvent, CareTask, Consent, EquipmentAsset, Property, ServiceAppointment, ServiceCall, ServiceProvider,
                       ServiceQuote, ServiceRequest, Warranty)
 from . import call_results, safety
-from .manufacturers import verified_line
+from .manufacturers import candidate_line, verified_line
 from .providers import SPECIALTIES, candidates, ensure_directory, get_source, specialty_for, to_e164_mx
 from .scope import ScopeWriter
 from .service_mode import service_mode
@@ -445,7 +446,8 @@ def _manual_reason(db: Session, req: ServiceRequest, line) -> str | None:
     if req.route != "fabricante" or req.status != "sin_cita":
         return None
     if line is None:
-        return "sin_linea"  # no tenemos el telefono de servicio verificado de esa marca
+        a = db.get(EquipmentAsset, req.asset_id) if req.asset_id else None
+        return "linea_por_verificar" if candidate_line(db, a.brand if a else None) else "sin_linea"  # la encontramos pero aun no esta verificada / no la tenemos
     c = db.scalar(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.purpose == "fabricante").order_by(ServiceCall.created_at.desc()))
     if c is None or c.status == "omitida":
         return "no_se_llamo"  # llamadas apagadas, numero fuera de la lista de pruebas o fuera de horario
@@ -458,7 +460,10 @@ def _manufacturer_out(db: Session, req: ServiceRequest, prop: Property | None) -
     u = db.get(User, req.created_by) if req.created_by else None
     w = db.scalar(select(Warranty).where(Warranty.asset_id == a.id)) if a else None
     line = verified_line(db, a.brand if a else None)
-    return {"reason": _manual_reason(db, req, line),
+    cand = None if line else candidate_line(db, a.brand if a else None)
+    return {"reason": _manual_reason(db, req, line), "feedback": req.line_feedback,
+            "candidate": {"phone": cand.phone_e164, "hours": cand.hours, "requires_holder": cand.requires_account_holder,
+                          "source_domain": urlparse(cand.source or "").netloc.removeprefix("www.") or None} if cand else None,
             "line": {"phone": line.phone_e164, "hours": line.hours, "requires_holder": line.requires_account_holder} if line else None,
             "brand": a.brand if a else None, "model": a.model if a else None, "serial": a.serial if a else None,
             "holder_name": u.name if u else None, "phone": req.contact_phone, "address": prop.address if prop else None,

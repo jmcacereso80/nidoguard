@@ -396,6 +396,7 @@ function motivoManual(reason: string | null, brand: string | null): string {
   const marca = brand ?? "esta marca";
   switch (reason) {
     case "sin_linea": return `Todavía no tenemos la línea de servicio de ${marca}, así que no pudimos llamar por ti.`;
+    case "linea_por_verificar": return `Encontramos la línea de servicio de ${marca}, pero todavía no llamamos por ti a números que una persona no ha verificado.`;
     case "no_se_llamo": return "En esta ocasión no llamamos al fabricante por ti.";
     case "no_contestaron": return "El fabricante no contestó la llamada.";
     case "no_se_pudo": return "Llamamos, pero no se pudo agendar: es común que pidan que el titular hable directamente.";
@@ -412,13 +413,18 @@ export function FabricanteManual({ r, act, busy, err }: P) {
   return (
     <div>
       <div className="mt-3"><Callout>{motivoManual(m?.reason ?? null, m?.brand ?? null)} Te dejamos todo listo para que agendes en un minuto.</Callout></div>
-      {m?.line && (<>
+      {(m?.line || m?.candidate) && (() => { const l = (m.line ?? m.candidate)!; return (<>
         <Label>Línea de servicio de {m.brand}</Label>
         <div className="g rounded-[26px] p-4">
-          <a href={`tel:${m.line.phone}`} className="text-[18px] font-extrabold text-navy underline">{m.line.phone.replace(/^\+52/, "")}</a>
-          {m.line.hours && <p className="mt-1 text-[13px] text-muted">Horario: {m.line.hours}</p>}
-          {m.line.requires_holder && <p className="mt-1 text-[13px] text-[#8F5A1F]">Suelen pedir que hable el titular de la compra.</p>}
-        </div></>)}
+          <a href={`tel:${l.phone}`} className="text-[18px] font-extrabold text-navy underline">{l.phone.replace(/^\+52/, "")}</a>
+          {l.hours && <p className="mt-1 text-[13px] text-muted">Horario: {l.hours}</p>}
+          {l.requires_holder && <p className="mt-1 text-[13px] text-[#8F5A1F]">Suelen pedir que hable el titular de la compra.</p>}
+          {!m.line && m.candidate && <p className="mt-2 text-[12.5px] leading-snug text-muted">La encontramos{m.candidate.source_domain ? ` en ${m.candidate.source_domain}` : ""}. Confirma que sea la correcta cuando te contesten.</p>}
+          {m.feedback == null
+            ? <div className="mt-3 flex gap-2 border-t border-navy/10 pt-3"><button type="button" disabled={busy} className="btn btn-ghost !min-h-11 flex-1 !px-2 text-[13.5px]" onClick={() => act("/service-requests/{id}/line-feedback", { worked: true })}>Me contestaron aquí</button>
+              <button type="button" disabled={busy} className="btn btn-ghost !min-h-11 flex-1 !px-2 text-[13.5px]" onClick={() => act("/service-requests/{id}/line-feedback", { worked: false })}>No era esa línea</button></div>
+            : <p className="mt-3 border-t border-navy/10 pt-3 text-[12.5px] text-muted">Gracias, nos ayuda a que la próxima persona llegue más rápido.</p>}
+        </div></>); })()}
       <Label>Esto te van a pedir</Label>
       <div className="g rounded-[26px] px-4 py-1.5">
         {filas.filter(([, v]) => v).map(([k, v], i) => (
@@ -428,7 +434,7 @@ export function FabricanteManual({ r, act, busy, err }: P) {
               onClick={() => { navigator.clipboard?.writeText(v!); setCopied(k); }}><Icon name={copied === k ? "check" : "copy"} size={18} /></button></div></div>
         ))}
       </div>
-      {!m?.line && <Note icon="search">Busca la línea de servicio en la garantía, el manual o la página del fabricante.</Note>}
+      {!m?.line && !m?.candidate && <Note icon="search">Busca la línea de servicio en la garantía, el manual o la página del fabricante.</Note>}
       <Label>Cuando tengas tu cita, dinos para cuándo quedó</Label>
       <div className="g flex flex-col gap-2.5 rounded-[26px] p-3.5">
         <label className="sr-only" htmlFor="fecha">Fecha de la cita</label><input id="fecha" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="field" />
