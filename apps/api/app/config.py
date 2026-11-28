@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     retell_agent_id: str = ""  # agente cotizador
     retell_agent_id_fabricante: str = ""  # agente para el centro de atencion del fabricante (opcional: usa el cotizador si falta)
     retell_from_number: str = ""  # numero E.164 desde el que se llama
+    retell_agent_id_cancelar: str = ""  # agente que avisa una cancelacion (usa el de agenda o el cotizador si falta)
     retell_agent_id_agenda: str = ""  # agente que agenda la visita y hace el recordatorio (usa el cotizador si falta)
     calls_window_enabled: bool = False  # PRUEBAS: 24 horas. ANTES DE PRODUCCION poner True (solo lunes a sabado de 9:00 a 19:00, hora de Mexico)
     calls_window_start: int = 9

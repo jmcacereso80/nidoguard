@@ -53,8 +53,9 @@ REGLAS_FALLO = """
 REGLAS_AGENDA = """
 
 ## REGLAS DE LA CITA (NidoGuard)
-Aplican SOLO cuando {{tipo}} es agendar, recordatorio o cancelar. Si es cotizar, ignora todo este bloque.
-- La visita YA está acordada: el técnico dio esa disponibilidad al cotizar y el cliente la eligió. NO preguntes si puede ir. Di algo como: "Le llamo para dejar confirmada la visita que usted ofreció, {{franja_elegida}}, por {{precio}}."
+Aplican SOLO cuando {{tipo}} es agendar o recordatorio. Si es cotizar o cancelar, ignora todo este bloque.
+- Si {{tipo}} es recordatorio: solo recuérdale la visita de {{franja_elegida}}, pregunta si sigue en pie y despídete. NO dictes dirección ni datos del cliente.
+- Si {{tipo}} es agendar: la visita YA está acordada: el técnico dio esa disponibilidad al cotizar y el cliente la eligió. NO preguntes si puede ir. Di algo como: "Le llamo para dejar confirmada la visita que usted ofreció, {{franja_elegida}}, por {{precio}}."
 - Pide solo la hora aproximada de llegada y el nombre de la persona que irá.
 - ORDEN OBLIGATORIO para la cita, paso por paso, sin saltarte ninguno:
   Paso 1: confirma la visita y pide la hora aproximada y el nombre de quien irá. Espera la respuesta.
@@ -67,11 +68,22 @@ Aplican SOLO cuando {{tipo}} es agendar, recordatorio o cancelar. Si es cotizar,
 - Si hay {{acceso}}, díselo tal cual (cómo se entra, qué identificación llevar). Si hay {{telefono_cliente}}, dile que puede hablar o escribir directo al cliente a ese número para coordinar el acceso o avisar al llegar. Si no hay teléfono, dile que NidoGuard le avisa al cliente.
 - Solo si dice que ya no puede, pide otra fecha y hora concretas.
 - Cierra diciendo que le avisas al cliente quién va y a qué hora.
-
-## AVISO DE CANCELACIÓN (cuando {{tipo}} es cancelar)
-- Esta llamada NO es para confirmar nada. Dile, con amabilidad y en una o dos frases, que el cliente canceló la visita de {{franja_elegida}} y que ya no es necesario que vaya. Ofrece una disculpa por la molestia y agradece su tiempo.
-- NO des dirección, nombre ni teléfono del cliente. NO ofrezcas reagendar. Si pregunta el motivo, di que el cliente decidió cancelar. Despídete.
 """
+MARCA_CANCEL = "## AVISO DE CANCELACIÓN (NidoGuard)"
+REGLAS_CANCELAR = f"""
+
+{MARCA_CANCEL}
+Aplica SOLO cuando {{{{tipo}}}} es cancelar.
+- Esta llamada NO es para confirmar nada ni para agendar. Dile, con amabilidad y en una o dos frases, que el cliente canceló la visita de {{{{franja_elegida}}}} y que ya no es necesario que vaya. Ofrece una disculpa por la molestia y agradece su tiempo.
+- NO des dirección, nombre ni teléfono del cliente. NO ofrezcas reagendar ni pidas precio. Si pregunta el motivo, di que el cliente decidió cancelar. Despídete y termina la llamada.
+"""
+PROMPT_BASE = {
+    "cita": ("Eres el asistente de voz de NidoGuard, un servicio que ayuda a las personas a cuidar los equipos de su hogar. Hablas en español de México, de usted, con frases cortas, "
+             "tono cálido y sin prisa. Llamas a un técnico o negocio de servicio para CONFIRMAR o RECORDAR una visita que ya quedó acordada. Nunca cotizas: el precio y la franja ya están acordados. "
+             "Si la persona que contesta no es el técnico o el negocio, pide hablar con quien atiende las citas."),
+    "cancelar": ("Eres el asistente de voz de NidoGuard, un servicio que ayuda a las personas a cuidar los equipos de su hogar. Hablas en español de México, de usted, con frases cortas y tono amable. "
+                 "Llamas a un técnico o negocio de servicio SOLO para avisarle que el cliente canceló una visita que ya estaba confirmada. Nunca cotizas ni agendas."),
+}
 AJUSTES = {
     "responsiveness": 0.45,           # espera antes de contestar (0 a 1; menos = mas paciente). ~1.5 s de pausa corta (era 3 s con 0.3)
     "interruption_sensitivity": 1,    # si la persona habla encima, el agente se calla
@@ -88,48 +100,86 @@ COPIA_AGENTE = ("voice_id", "language", "voice_model", "voice_temperature", "voi
                 "webhook_url", "post_call_analysis_data", "post_call_analysis_model", "boosted_keywords", "pronunciation_dictionary", "stt_mode", "denoising_mode", "data_storage_setting")
 
 
-def crear_agenda(aplicar: bool):
-    """Clona el agente cotizador como "NidoGuard Agenda": mismo modelo, voz y prompt, pero abre con {{saludo}} (confirmar, recordar o avisar), nunca con el saludo de cotizar."""
+def rol_de(aid: str, s) -> str:
+    if aid and aid == s.retell_agent_id_cancelar and aid != s.retell_agent_id:
+        return "cancelar"
+    if aid and aid == s.retell_agent_id_fabricante and aid != s.retell_agent_id:
+        return "fabricante"
+    if aid and aid == s.retell_agent_id_agenda and aid != s.retell_agent_id:
+        return "cita"
+    return "cotizador"
+
+
+def componer(rol: str, base: str, s) -> str:
+    """Guion final de cada agente: cada uno solo con lo suyo (el cotizador lleva todo solo si no hay agentes de cita y cancelación aparte)."""
+    if rol == "cancelar":
+        return base + REGLAS + REGLAS_CANCELAR
+    if rol == "cita":
+        return base + REGLAS + REGLAS_EQUIPO + REGLAS_FALLO + REGLAS_AGENDA
+    if rol == "fabricante":
+        return base + REGLAS + REGLAS_FALLO
+    extra = (REGLAS_AGENDA if not s.retell_agent_id_agenda or s.retell_agent_id_agenda == s.retell_agent_id else "") + \
+            (REGLAS_CANCELAR if not s.retell_agent_id_cancelar or s.retell_agent_id_cancelar == s.retell_agent_id else "")
+    return TIPO + base + REGLAS + REGLAS_EQUIPO + REGLAS_FALLO + extra
+
+
+def limpiar(prompt: str) -> str:
+    if prompt.startswith(MARCA_TIPO) and FIN_TIPO in prompt:
+        prompt = prompt.split(FIN_TIPO, 1)[1].lstrip()  # el bloque de tipo va siempre al inicio
+    for m in (MARCA, MARCA_CITA, MARCA_CANCEL, MARCA_EQUIPO, MARCA_FALLO):
+        prompt = prompt.split(m)[0]
+    return prompt.rstrip()
+
+
+def crear_agente(rol: str, aplicar: bool):
+    """Crea un agente propio ("cita" o "cancelar") con el modelo y la voz del cotizador, pero con SU guion corto y SU saludo ({{saludo}}); nunca hereda el guion de cotizar."""
     s = get_settings()
+    nombre = {"cita": "NidoGuard Cita", "cancelar": "NidoGuard Cancelación"}[rol]
+    var = {"cita": "RETELL_AGENT_ID_AGENDA", "cancelar": "RETELL_AGENT_ID_CANCELAR"}[rol]
     if not s.retell_api_key or not s.retell_agent_id:
         raise SystemExit("Falta RETELL_API_KEY o RETELL_AGENT_ID en el .env.")
-    if s.retell_agent_id_agenda and s.retell_agent_id_agenda != s.retell_agent_id:
-        raise SystemExit("Ya hay un RETELL_AGENT_ID_AGENDA distinto del cotizador. Corre `ajustar --aplicar` para ponerle las reglas.")
+    actual = s.retell_agent_id_agenda if rol == "cita" else s.retell_agent_id_cancelar
+    if actual and actual != s.retell_agent_id:
+        raise SystemExit(f"Ya hay un {var} distinto del cotizador. Corre `ajustar --aplicar` para ponerle las reglas.")
     h = {"Authorization": f"Bearer {s.retell_api_key}"}
     ag = httpx.get(f"{API}/get-agent/{s.retell_agent_id}", headers=h, timeout=20); ag.raise_for_status(); ag = ag.json()
     eng = ag.get("response_engine") or {}
     if eng.get("type") != "retell-llm":
-        raise SystemExit("El cotizador no usa Retell LLM: duplícalo a mano en Retell y ponle como saludo {{saludo}}.")
+        raise SystemExit("El cotizador no usa Retell LLM: crea el agente a mano en Retell, con saludo {{saludo}} y el guion de admin/agentes.py.")
     llm = httpx.get(f"{API}/get-retell-llm/{eng['llm_id']}", headers=h, timeout=20); llm.raise_for_status(); llm = llm.json()
-    print(f"Cotizador {s.retell_agent_id[:8]}…: saludo actual = {(llm.get('begin_message') or '(el agente habla primero según el prompt)')!r}")
-    print(f"Se creará 'NidoGuard Agenda' con el mismo modelo y voz, y saludo {SALUDO_AGENDA!r}.")
+    guion = componer(rol, PROMPT_BASE[rol], s)
+    print(f"Se creará '{nombre}': modelo y voz del cotizador {s.retell_agent_id[:8]}…, guion propio de {len(guion)} caracteres y saludo {SALUDO_AGENDA!r} (no hereda el guion ni el saludo de cotizar).")
     if not aplicar:
-        print("\nNo cambié nada. Corre `python -m admin.agentes crear-agenda --aplicar`.")
+        print(f"\nNo cambié nada. Corre `python -m admin.agentes crear-{'cita' if rol == 'cita' else 'cancelacion'} --aplicar`.")
         return
-    nllm = httpx.post(f"{API}/create-retell-llm", json={**{k: llm[k] for k in COPIA_LLM if llm.get(k) is not None}, "begin_message": SALUDO_AGENDA}, headers=h, timeout=30)
+    copia = {k: llm[k] for k in COPIA_LLM if llm.get(k) is not None and k != "general_prompt"}
+    nllm = httpx.post(f"{API}/create-retell-llm", json={**copia, "general_prompt": guion, "begin_message": SALUDO_AGENDA}, headers=h, timeout=30)
     nllm.raise_for_status()
-    body = {**{k: ag[k] for k in COPIA_AGENTE if ag.get(k) is not None}, "agent_name": "NidoGuard Agenda",
-            "response_engine": {"type": "retell-llm", "llm_id": nllm.json()["llm_id"]}}
+    body = {**{k: ag[k] for k in COPIA_AGENTE if ag.get(k) is not None}, "agent_name": nombre, "response_engine": {"type": "retell-llm", "llm_id": nllm.json()["llm_id"]}}
     nag = httpx.post(f"{API}/create-agent", json=body, headers=h, timeout=30)
     nag.raise_for_status()
-    print(f"Listo. Pon en el .env: RETELL_AGENT_ID_AGENDA={nag.json()['agent_id']}  (no es una llave). Luego corre `ajustar --aplicar` para ponerle las reglas de la cita.")
+    print(f"Listo. Pon en el .env: {var}={nag.json()['agent_id']}  (no es una llave). Luego corre `ajustar --aplicar`.")
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("cmd", choices=["ajustar", "crear-agenda"]); ap.add_argument("--aplicar", action="store_true")
+    ap = argparse.ArgumentParser(); ap.add_argument("cmd", choices=["ajustar", "crear-cita", "crear-cancelacion", "crear-agenda"]); ap.add_argument("--aplicar", action="store_true")
     a = ap.parse_args()
-    if a.cmd == "crear-agenda":
-        return crear_agenda(a.aplicar)
+    if a.cmd in ("crear-cita", "crear-agenda"):
+        return crear_agente("cita", a.aplicar)
+    if a.cmd == "crear-cancelacion":
+        return crear_agente("cancelar", a.aplicar)
     s = get_settings()
     if not s.retell_api_key:
         raise SystemExit("Falta RETELL_API_KEY en el .env.")
-    ids = {x for x in (s.retell_agent_id, s.retell_agent_id_fabricante, s.retell_agent_id_agenda) if x}
+    ids = {x for x in (s.retell_agent_id, s.retell_agent_id_fabricante, s.retell_agent_id_agenda, s.retell_agent_id_cancelar) if x}
     if not ids:
         raise SystemExit("No hay ningún RETELL_AGENT_ID en el .env.")
     h = {"Authorization": f"Bearer {s.retell_api_key}"}
     if not s.retell_agent_id_agenda or s.retell_agent_id_agenda == s.retell_agent_id:
-        print("AVISO: RETELL_AGENT_ID_AGENDA está vacío o es el mismo que el cotizador. Las llamadas de confirmación, recordatorio y cancelación "
-              "usan el agente cotizador (su saludo y su guion piden cotizar). Duplica el agente en Retell, ponle un saludo de cita y pon su id en RETELL_AGENT_ID_AGENDA.\n")
+        print("AVISO: falta RETELL_AGENT_ID_AGENDA (confirmar y recordar la cita). Corre `crear-cita --aplicar`: sin él, la confirmación usa el saludo y el guion de cotizar.")
+    if not s.retell_agent_id_cancelar or s.retell_agent_id_cancelar == s.retell_agent_id:
+        print("AVISO: falta RETELL_AGENT_ID_CANCELAR (avisar una cancelación). Corre `crear-cancelacion --aplicar`: sin él, la cancelación usa el agente de cita.")
+    print()
     for aid in sorted(ids):
         ag = httpx.get(f"{API}/get-agent/{aid}", headers=h, timeout=20); ag.raise_for_status(); ag = ag.json()
         eng = ag.get("response_engine") or {}
@@ -139,18 +189,15 @@ def main():
         prompt = None
         if llm_id:
             l = httpx.get(f"{API}/get-retell-llm/{llm_id}", headers=h, timeout=20); l.raise_for_status(); prompt = l.json().get("general_prompt") or ""
-            print(f"  prompt: se pondrán las reglas de voz (pesos y paciencia){' y las de la cita' if aid != s.retell_agent_id_fabricante else ''}")
+            print(f"  prompt: guion de rol '{rol_de(aid, s)}' con las reglas de voz")
         else:
             print("  Este agente no usa Retell LLM: agrega las reglas de voz a mano (están en admin/agentes.py).")
         if not a.aplicar:
             continue
         httpx.patch(f"{API}/update-agent/{aid}", json=AJUSTES, headers=h, timeout=20).raise_for_status()
         if llm_id:
-            prompt = orig = prompt or ""
-            if prompt.startswith(MARCA_TIPO) and FIN_TIPO in prompt:
-                prompt = prompt.split(FIN_TIPO, 1)[1].lstrip()  # quita el bloque de tipo anterior (va siempre al inicio)
-            base = (prompt or "").split(MARCA)[0].split(MARCA_CITA)[0].split(MARCA_EQUIPO)[0].split(MARCA_FALLO)[0].rstrip()  # quita nuestros bloques anteriores y los vuelve a poner (asi se pueden actualizar)
-            nuevo = (TIPO if aid != s.retell_agent_id_fabricante else "") + base + REGLAS + (REGLAS_EQUIPO if aid != s.retell_agent_id_fabricante else "") + REGLAS_FALLO + (REGLAS_AGENDA if aid != s.retell_agent_id_fabricante else "")
+            orig = prompt or ""
+            nuevo = componer(rol_de(aid, s), limpiar(orig), s)
             if nuevo != orig:
                 httpx.patch(f"{API}/update-retell-llm/{llm_id}", json={"general_prompt": nuevo}, headers=h, timeout=20).raise_for_status()
         print("  aplicado.")

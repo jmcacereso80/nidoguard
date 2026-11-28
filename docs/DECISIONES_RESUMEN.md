@@ -82,3 +82,8 @@ Nuevo: escanea QR de la hoja → "Crea tu cuenta para activar tu kit" → kit re
 ## Saludo propio para las llamadas de cita
 - El saludo del agente se dice antes de leer el prompt, así que un bloque de reglas no basta: la confirmación abría con las preguntas de cotizar. Ahora la llamada trae la variable `saludo` (agendar, recordatorio, cancelar) y el agente de agenda abre con `{{saludo}}`.
 - `python -m admin.agentes crear-agenda [--aplicar]` clona el cotizador como "NidoGuard Agenda" (mismo modelo y voz) con ese saludo. Después, poner su id en `RETELL_AGENT_ID_AGENDA` y correr `ajustar --aplicar`.
+
+## Tres agentes de voz: cotizar, cita y cancelación
+- Cancelar una cita llamó a confirmarla: un solo agente de agenda hacía confirmar, recordar y cancelar, y su guion y saludo eran de confirmación. Ahora hay un agente por propósito, cada uno con guion corto propio y saludo `{{saludo}}`: cotizador (RETELL_AGENT_ID), cita = confirmar y recordar (RETELL_AGENT_ID_AGENDA), cancelación (RETELL_AGENT_ID_CANCELAR); el de fabricante sigue aparte.
+- `python -m admin.agentes crear-cita|crear-cancelacion [--aplicar]` los crea con el modelo y la voz del cotizador pero SIN heredar su guion; `ajustar --aplicar` pone a cada uno solo sus reglas. Si falta alguno, el cotizador lleva todo como respaldo.
+- Prompts más cortos: menos riesgo de mezclarse y menos costo por minuto de modelo.

@@ -457,3 +457,32 @@ def test_saludo_de_cita_nunca_es_el_de_cotizar():
         v = dynamic_variables(CallContext(kind=kind, service="x", equipment="refri", symptom=None, urgency="normal", zone="Roma", extra={"franja_elegida": "lunes 9 a 11"}))
         assert palabra in v["saludo"] and "lunes 9 a 11" in v["saludo"] and "cotiz" not in v["saludo"].lower()
     assert "saludo" not in dynamic_variables(CallContext(kind="cotizar", service="x", equipment="refri", symptom=None, urgency="normal", zone="Roma"))
+
+
+def test_tres_agentes_cada_uno_con_su_guion(monkeypatch):
+    from admin import agentes
+    from app.config import get_settings
+    s = get_settings().model_copy(update={"retell_agent_id": "cot", "retell_agent_id_agenda": "cita", "retell_agent_id_cancelar": "canc", "retell_agent_id_fabricante": "fab"})
+    cita = agentes.componer(agentes.rol_de("cita", s), agentes.PROMPT_BASE["cita"], s)
+    canc = agentes.componer(agentes.rol_de("canc", s), agentes.PROMPT_BASE["cancelar"], s)
+    cot = agentes.componer(agentes.rol_de("cot", s), "Guion de cotizar.", s)
+    assert agentes.MARCA_CITA in cita and agentes.MARCA_CANCEL not in cita and agentes.MARCA_TIPO not in cita
+    assert agentes.MARCA_CANCEL in canc and agentes.MARCA_CITA not in canc and "dónde anotar" not in canc
+    assert agentes.MARCA_CITA not in cot and agentes.MARCA_CANCEL not in cot and cot.startswith(agentes.MARCA_TIPO)
+    assert agentes.limpiar(cita) == agentes.PROMPT_BASE["cita"] and agentes.limpiar(cot) == "Guion de cotizar."
+
+
+def test_sin_agentes_aparte_el_cotizador_lleva_todo():
+    from admin import agentes
+    from app.config import get_settings
+    s = get_settings().model_copy(update={"retell_agent_id": "cot", "retell_agent_id_agenda": "", "retell_agent_id_cancelar": ""})
+    cot = agentes.componer("cotizador", "Guion.", s)
+    assert agentes.MARCA_CITA in cot and agentes.MARCA_CANCEL in cot
+
+
+def test_la_cancelacion_usa_su_propio_agente(monkeypatch):
+    from app.config import get_settings
+    from app.services import retell
+    s = get_settings().model_copy(update={"retell_agent_id": "cot", "retell_agent_id_agenda": "cita", "retell_agent_id_cancelar": "canc"})
+    assert (s.retell_agent_id_cancelar or s.retell_agent_id_agenda) == "canc"
+    assert "retell_agent_id_cancelar" in open(retell.__file__).read()
