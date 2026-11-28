@@ -16,8 +16,8 @@ MARCA_EQUIPO = "## DATOS DEL EQUIPO (NidoGuard)"
 REGLAS = f"""
 
 {MARCA}
-- Todos los precios son en PESOS MEXICANOS. Di las cantidades completas en español: "setecientos pesos", "mil doscientos pesos". Nunca digas "dólares", "USD" ni leas el signo $ en inglés. Si la otra persona da un monto sin moneda, confirma: "¿Son pesos mexicanos?".
-- Deja hablar. Una pausa corta no significa que la otra persona terminó: espera unos 2 segundos de silencio antes de responder. Nunca interrumpas ni completes sus frases.
+- Todos los precios son en PESOS MEXICANOS, siempre. Di las cantidades completas en español: "setecientos pesos", "mil doscientos pesos". Nunca digas "dólares", "USD" ni leas el signo $ en inglés. NUNCA preguntes la moneda ni "¿son pesos mexicanos?": si la otra persona da un monto sin decir la moneda, son pesos mexicanos y sigues adelante.
+- Deja hablar. Una pausa corta no significa que la otra persona terminó: espera unos 1.5 segundos de silencio antes de responder. Nunca interrumpas ni completes sus frases.
 - Si la otra persona está pensando o buscando un dato, no llenes el silencio. Si pasan más de 6 segundos, di una sola vez: "Sin prisa, aquí sigo."
 - Haz una pregunta a la vez y espera la respuesta completa.
 - No uses muletillas ("ajá", "mjm") mientras la otra persona habla.
@@ -44,7 +44,7 @@ REGLAS_AGENDA = """
 - NO des dirección, nombre ni teléfono del cliente. NO ofrezcas reagendar. Si pregunta el motivo, di que el cliente decidió cancelar. Despídete.
 """
 AJUSTES = {
-    "responsiveness": 0.4,            # espera antes de contestar (0 a 1; menos = mas paciente). 30% mas rapido que 0.3
+    "responsiveness": 0.45,           # espera antes de contestar (0 a 1; menos = mas paciente). ~1.5 s de pausa corta (era 3 s con 0.3)
     "interruption_sensitivity": 1,    # si la persona habla encima, el agente se calla
     "enable_backchannel": False,      # sin "ajá" mientras habla
     "reminder_trigger_ms": 10500,     # no lo "despierta" antes de ~10 s de silencio (30% menos que 15 s)
