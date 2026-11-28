@@ -12,6 +12,9 @@ _l.setLevel(logging.INFO)
 if not _l.handlers:
     _l.addHandler(_h)
 
+if get_settings().calls_enabled and not get_settings().calls_window_enabled:
+    _l.warning("Llamadas habilitadas SIN horario (24 horas). Es solo para pruebas: antes de produccion CALLS_WINDOW_ENABLED=true.")
+
 app = FastAPI(title="NidoGuard API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,

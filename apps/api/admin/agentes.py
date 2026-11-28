@@ -38,6 +38,10 @@ REGLAS_AGENDA = """
 - Si hay {{acceso}}, díselo tal cual (cómo se entra, qué identificación llevar). Si hay {{telefono_cliente}}, dile que puede hablar o escribir directo al cliente a ese número para coordinar el acceso o avisar al llegar. Si no hay teléfono, dile que NidoGuard le avisa al cliente.
 - Solo si dice que ya no puede, pide otra fecha y hora concretas.
 - Cierra diciendo que le avisas al cliente quién va y a qué hora.
+
+## AVISO DE CANCELACIÓN (cuando {{tipo}} es cancelar)
+- Esta llamada NO es para confirmar nada. Dile, con amabilidad y en una o dos frases, que el cliente canceló la visita de {{franja_elegida}} y que ya no es necesario que vaya. Ofrece una disculpa por la molestia y agradece su tiempo.
+- NO des dirección, nombre ni teléfono del cliente. NO ofrezcas reagendar. Si pregunta el motivo, di que el cliente decidió cancelar. Despídete.
 """
 AJUSTES = {
     "responsiveness": 0.4,            # espera antes de contestar (0 a 1; menos = mas paciente). 30% mas rapido que 0.3

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { ConfirmLink } from "@/components/servicios/ConfirmLink";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { ErrorNote } from "@/components/Shell";
@@ -86,7 +87,7 @@ export function Confirmar({ r, act, busy, err }: P) {
       <Actions>
         <Btn disabled={busy || !ok || !r.address_complete} onClick={() => act("/service-requests/{id}/start", { consent: ok })}><Icon name="phone" size={19} stroke={2.2} />Buscar cotizaciones</Btn>
         {puedeFabricante && <TextLink onClick={() => act("/service-requests/{id}/scope", { route: "fabricante" })}>Prefiero llevarlo al fabricante</TextLink>}
-        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar solicitud</TextLink>
+        <ConfirmLink kind="solicitud" onConfirm={() => act("/service-requests/{id}/cancel")}>Cancelar solicitud</ConfirmLink>
       </Actions>
     </div>
   );
@@ -126,7 +127,7 @@ export function FabricanteDatos({ r, act, busy, err }: P) {
       <Actions>
         <Btn disabled={busy || !ok || !tengoTel} onClick={() => act("/service-requests/{id}/start", { consent: ok, phone: tecleado ? phone : null })}><Icon name="phone" size={19} stroke={2.2} />Agendar con el fabricante</Btn>
         <button type="button" disabled={busy} onClick={() => act("/service-requests/{id}/scope", { route: "tecnico" })} className="btn btn-copper w-full"><Icon name="wrench" size={19} stroke={2.2} />Cotizar con técnicos a domicilio</button>
-        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar solicitud</TextLink>
+        <ConfirmLink kind="solicitud" onConfirm={() => act("/service-requests/{id}/cancel")}>Cancelar solicitud</ConfirmLink>
       </Actions>
     </div>
   );
@@ -167,7 +168,7 @@ export function Progreso({ r, act, busy, onSee }: P & { onSee: () => void }) {
       <Note>Puedes cerrar la app. Te avisamos cuando haya cotizaciones.</Note>
       <Actions>
         {r.quote_count > 0 && <Btn ghost onClick={onSee}><Icon name="list" size={19} />Ver las que ya llegaron</Btn>}
-        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar búsqueda</TextLink>
+        <ConfirmLink kind="solicitud" onConfirm={() => act("/service-requests/{id}/cancel")}>Cancelar búsqueda</ConfirmLink>
       </Actions>
     </div>
   );
@@ -179,7 +180,7 @@ export function FabricanteLlamando({ r, act }: P) {
       <Summary icon="building" title={r.scope_text ?? ""} sub={r.equipment_label} />
       <Timeline rows={[{ state: "ok", text: "Tenemos tus datos y tu permiso" }, { state: "now", text: "Llamando al fabricante", sub: "Puede haber espera en la línea" }, { state: "wait", text: "Agendando tu cita" }, { state: "wait", text: "Confirmación y folio" }]} />
       <Note>Puedes cerrar la app. Te avisamos con la fecha de tu cita en cuanto quede.</Note>
-      <Actions><TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar</TextLink></Actions>
+      <Actions><ConfirmLink kind="solicitud" onConfirm={() => act("/service-requests/{id}/cancel")}>Cancelar</ConfirmLink></Actions>
     </div>
   );
 }
@@ -198,7 +199,7 @@ export function SinRespuesta({ r, act, busy, err }: P) {
       <ErrorNote text={err} />
       <Actions>
         {r.radius_km < 25 && <Btn disabled={busy} onClick={() => act("/service-requests/{id}/expand")}><Icon name="pin" size={19} />Buscar hasta 25 km</Btn>}
-        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar búsqueda</TextLink>
+        <ConfirmLink kind="solicitud" onConfirm={() => act("/service-requests/{id}/cancel")}>Cancelar búsqueda</ConfirmLink>
       </Actions>
     </div>
   );
@@ -243,7 +244,7 @@ export function Comparar({ r, act }: { r: ServiceRequest; act?: Act }) {
       <div className="mt-3 flex flex-col gap-2.5">{quotes.map((q) => <QuoteCard key={q.id} q={q} rid={r.id} />)}</div>
       <div className="mt-4"><NoCobro /></div>
       <p className="mx-1.5 mt-3 text-center text-[12.5px] leading-snug text-muted">No pasa nada si no eliges ninguna: puedes cancelar cuando quieras.</p>
-      {act && <Actions><TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar solicitud</TextLink></Actions>}
+      {act && <Actions><ConfirmLink kind="solicitud" onConfirm={() => act("/service-requests/{id}/cancel")}>Cancelar solicitud</ConfirmLink></Actions>}
     </div>
   );
 }
@@ -356,10 +357,10 @@ export function Visita(p: P) {
         {confirmada && <a className="btn" download="visita-nidoguard.ics" href={icsLink(CALENDAR_TITLE(r), ap.starts_at!, ap.ends_at)}><Icon name="calendar" size={19} stroke={2.2} />Agregar al calendario</a>}
         <DoneBox {...p} />
         <Link href="/servicios" className="btn btn-ghost"><Icon name="list" size={19} />Ver mis solicitudes</Link>
-        <TextLink onClick={() => act(`/appointments/${ap.id}/cancel`)}>Elegir otra cotización u horario</TextLink>
-        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar la visita</TextLink>
+        <ConfirmLink kind="cambiar" onConfirm={() => act(`/appointments/${ap.id}/cancel`)} danger={false}>Elegir otra cotización u horario</ConfirmLink>
+        <ConfirmLink kind="solicitud" onConfirm={() => act("/service-requests/{id}/cancel")}>Cancelar la solicitud</ConfirmLink>
       </Actions>
-      <p className="mx-1.5 mt-2 text-center text-[12.5px] leading-snug text-muted">Puedes cancelar en cualquier momento. {confirmada ? (ap.technician_phone ? "Como ya estaba confirmada, avísale también al técnico por teléfono." : "Como ya estaba confirmada, avísale al técnico si tienes su contacto.") : "Si el técnico aún no confirma, ya no lo llamamos."}</p>
+      <p className="mx-1.5 mt-2 text-center text-[12.5px] leading-snug text-muted">Puedes cancelar en cualquier momento. {confirmada ? "Como el técnico ya la había confirmado, le llamamos para avisarle." : "Si el técnico aún no confirma, ya no lo llamamos."}</p>
     </div>
   );
 }
@@ -382,7 +383,7 @@ export function CitaFabricante(p: P) {
         {ap.starts_at && <a className="btn" download="cita-nidoguard.ics" href={icsLink(CALENDAR_TITLE(r), ap.starts_at, ap.ends_at, lugar || null)}><Icon name="calendar" size={19} stroke={2.2} />Agregar al calendario</a>}
         {ap.center_address && <a className="btn btn-ghost" href={mapsLink(lugar)} target="_blank" rel="noreferrer"><Icon name="nav" size={19} />Cómo llegar</a>}
         <DoneBox {...p} />
-        <TextLink onClick={() => act(`/appointments/${ap.id}/cancel`)} danger>Cambiar o cancelar la cita</TextLink>
+        <ConfirmLink kind="cita" onConfirm={() => act(`/appointments/${ap.id}/cancel`)}>Cambiar o cancelar la cita</ConfirmLink>
       </Actions>
     </div>
   );
@@ -424,7 +425,7 @@ export function FabricanteManual({ r, act, busy, err }: P) {
       <ErrorNote text={err} />
       <Actions>
         <Btn disabled={busy || !date} onClick={() => act("/service-requests/{id}/register", { date, window: win, folio: folio || null })}><Icon name="calendar" size={19} stroke={2.2} />Registrar mi cita</Btn>
-        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar solicitud</TextLink>
+        <ConfirmLink kind="solicitud" onConfirm={() => act("/service-requests/{id}/cancel")}>Cancelar solicitud</ConfirmLink>
       </Actions>
     </div>
   );

@@ -69,7 +69,7 @@ def _ctx(db: Session, req: ServiceRequest, call: ServiceCall) -> tuple[CallConte
         return CallContext(kind="fabricante", service=req.scope_text, equipment=req.equipment_label or "equipo", symptom=req.symptom,
                            urgency=req.urgency, zone=zone or (prop.city if prop else ""), extra=extra), (line.phone_e164 if line else None)
     p = db.get(ServiceProvider, call.provider_id)
-    if call.purpose in ("agendar", "recordatorio"):
+    if call.purpose in ("agendar", "recordatorio", "cancelar"):
         ap = db.scalar(select(ServiceAppointment).where(ServiceAppointment.request_id == req.id, ServiceAppointment.provider_id == call.provider_id)
                        .order_by(ServiceAppointment.created_at.desc()))
         q = db.get(ServiceQuote, ap.quote_id) if ap and ap.quote_id else None
@@ -228,6 +228,8 @@ def tick(db: Session, voice: VoiceCaller) -> dict:
         settle(db, req, voice)
         n["busquedas"] += req.status == "buscando"
     n["recordatorios"] = send_reminders(db, voice, now)
+    if _is_real(voice):
+        _dial_cancellations(db, voice, now)
     db.commit()
     return n
 
@@ -261,6 +263,29 @@ def request_schedule_call(db: Session, req: ServiceRequest, ap: ServiceAppointme
     db.add(ServiceCall(request_id=req.id, provider_id=ap.provider_id, purpose="agendar", label=label, attempt=attempt, status="en_cola"))
     db.flush()
     _dial_pending(db, req, voice, _now(), ("agendar",))
+
+
+def notify_cancellation(db: Session, ap: ServiceAppointment, voice: VoiceCaller) -> None:
+    """La persona cancelo una visita que el tecnico ya habia confirmado: se le llama para avisarle (sin direccion ni datos)."""
+    if not _is_real(voice) or ap.provider_kind != "tecnico" or not ap.provider_id:
+        return
+    p = db.get(ServiceProvider, ap.provider_id)
+    if p is None or p.do_not_call:
+        return
+    req = db.get(ServiceRequest, ap.request_id)
+    label = db.get(ServiceQuote, ap.quote_id).label if ap.quote_id else "Técnico"
+    db.add(ServiceCall(request_id=req.id, provider_id=ap.provider_id, purpose="cancelar", label=label, attempt=1, status="en_cola"))
+    db.flush()
+    _dial_cancellations(db, voice, _now())
+
+
+def _dial_cancellations(db: Session, voice: VoiceCaller, now: datetime) -> None:
+    if not call_policy.in_window(now):  # fuera de horario espera; el tick la marca al abrir
+        return
+    for c in db.scalars(select(ServiceCall).where(ServiceCall.purpose == "cancelar", ServiceCall.status == "en_cola")):
+        req = db.get(ServiceRequest, c.request_id)
+        ctx, phone = _ctx(db, req, c)
+        voice.dial(db, c, ctx, phone)
 
 
 def _hours(d: date, h0: int | None, h1: int | None, slot: dict | None) -> tuple[datetime, datetime]:
@@ -428,7 +453,7 @@ def handle_event(db: Session, payload: dict, extractor: Extractor, voice: VoiceC
         text = call.transcript or ""
         if len(text.strip()) < 40:
             _no_answer(db, call, req, now)
-        elif call.purpose == "recordatorio":
+        elif call.purpose in ("recordatorio", "cancelar"):
             call.status = "completada"
         else:
             try:

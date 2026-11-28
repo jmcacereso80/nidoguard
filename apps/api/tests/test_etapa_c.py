@@ -206,6 +206,42 @@ def test_cancelar_la_visita_cancela_la_llamada_de_confirmacion_en_cola(real, db,
     assert c.post(f"/service-requests/{r['id']}/cancel").status_code == 200  # y también puede cancelar todo, con cotizaciones listas
 
 
+def test_cancelar_una_visita_confirmada_le_avisa_al_tecnico_por_telefono(real, db):
+    c, tokens, enviados = real
+    d = dia(3)
+    rid, s = agendada(c, db, tokens, enviados, Ext(appt=AppointmentDraft(outcome="confirma", date=d, start_hour=10, end_hour=12)))
+    assert analizada(c, len(enviados)).json()["result"] == "completada"
+    ap = c.get(f"/service-requests/{rid}").json()["appointment"]
+    tel = db.get(ServiceProvider, db.get(ServiceAppointment, uuid.UUID(ap["id"])).provider_id).phone_e164
+    n = len(enviados)
+    assert c.post(f"/appointments/{ap['id']}/cancel").status_code == 200
+    assert len(enviados) == n + 1
+    v = enviados[-1]["retell_llm_dynamic_variables"]
+    assert v["tipo"] == "cancelar" and enviados[-1]["to_number"] == tel and v["franja_elegida"]
+    assert "direccion" not in v and "nombre" not in v and "telefono_cliente" not in v  # el aviso no lleva datos de la persona
+
+
+def test_cancelar_toda_la_solicitud_tambien_avisa_si_ya_estaba_confirmada(real, db):
+    c, tokens, enviados = real
+    rid, s = agendada(c, db, tokens, enviados, Ext(appt=AppointmentDraft(outcome="confirma", date=dia(3), start_hour=10, end_hour=12)))
+    analizada(c, len(enviados))
+    n = len(enviados)
+    assert c.post(f"/service-requests/{rid}/cancel").status_code == 200
+    assert len(enviados) == n + 1 and enviados[-1]["retell_llm_dynamic_variables"]["tipo"] == "cancelar"
+
+
+def test_cancelar_una_visita_sin_confirmar_no_llama_al_tecnico(real, db, monkeypatch):
+    c, tokens, enviados = real
+    r = buscar(c, db, tokens)
+    analizada(c, 1)
+    r = c.get(f"/service-requests/{r['id']}").json()
+    monkeypatch.setattr(call_policy, "in_window", lambda now: False)
+    s = c.post(f"/service-requests/{r['id']}/schedule", json={"quote_id": r["quotes"][0]["id"], "slot_index": 0, "consent": True}).json()
+    n = len(enviados)
+    assert c.post(f"/appointments/{s['appointment']['id']}/cancel").status_code == 200
+    assert len(enviados) == n  # nunca se le dio nada al tecnico: no hay a quien avisar
+
+
 def test_confirma_revela_nombre_y_marca_recordatorio_el_dia_anterior(real, db):
     c, tokens, enviados = real
     d = dia(3)

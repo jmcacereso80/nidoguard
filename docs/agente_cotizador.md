@@ -60,3 +60,5 @@ Solo lunes a sábado 9:00 a 19:00 (hora de México); fuera de horario la búsque
 4. Pide un servicio desde la app, y en otra terminal `python -m admin.tick` cada minuto (o déjalo en cron). Contesta tú el teléfono como si fueras el técnico: da precio y horarios; luego agenda y contesta la segunda llamada.
 5. Al terminar: `python -m admin.proveedores quitar-prueba` y `CALLS_ENABLED=false`.
 Fabricantes: `python -m admin.fabricantes agregar --marca <Marca> --telefono ...` y `verificar` (una persona verifica el número antes de usarlo).
+
+- **Aviso de cancelación:** `purpose=cancelar` usa el agente de agenda con `tipo=cancelar` y `franja_elegida`. Sin dirección ni datos de la persona. Fuera de horario queda en cola y el tick la marca al abrir. Se vuelve a aplicar con `python -m admin.agentes ajustar --aplicar` (bloque "AVISO DE CANCELACIÓN" dentro de REGLAS DE LA CITA).

@@ -39,3 +39,7 @@ Base: PostgreSQL 17. Un solo servidor Ubuntu al inicio. Dominio `nidoguard.com` 
 - **Evaluación de lectura con 50 a 100 placas reales** (D-009): pendiente; hasta ahora solo placas sintéticas.
 - **NFC y cámara en celular real:** sin probar.
 - **Parámetro de esfuerzo "medio"** en la llamada a Claude: se envía y, si la API lo rechaza, se reintenta sin él; no verifiqué cuál de los dos ocurrió.
+
+## Antes de producción (recordatorio)
+- [ ] `CALLS_WINDOW_ENABLED=true` (hoy el default es false: llamadas 24 horas solo para pruebas).
+- [ ] `CALLS_ALLOWLIST` vacío solo cuando se decida llamar a técnicos reales; `python -m admin.proveedores quitar-prueba`.

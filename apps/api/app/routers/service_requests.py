@@ -144,7 +144,7 @@ def expand(request_id: uuid.UUID, org: Organization = Depends(current_org), db: 
 
 
 @router.post("/service-requests/{request_id}/cancel")
-def cancel(request_id: uuid.UUID, org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+def cancel(request_id: uuid.UUID, org: Organization = Depends(current_org), db: Session = Depends(get_db), voice: VoiceCaller = Depends(get_voice)):
     r = _req(db, org, request_id, advance=False)
     if r.status in ("terminada", "cancelada"):
         raise HTTPException(409, "Esta solicitud ya terminó.")
@@ -152,8 +152,13 @@ def cancel(request_id: uuid.UUID, org: Organization = Depends(current_org), db: 
     from ..models import ServiceCall
     for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == r.id, ServiceCall.status == "en_cola")):
         c.status = "cancelada"
+    avisar = []
     for ap in db.scalars(select(ServiceAppointment).where(ServiceAppointment.request_id == r.id, ServiceAppointment.status.in_(["por_confirmar", "confirmada"]))):
+        if ap.status == "confirmada":
+            avisar.append(ap)
         ap.status = "cancelada"
+    for ap in avisar:
+        call_results.notify_cancellation(db, ap, voice)  # el tecnico ya habia confirmado: se le avisa
     db.commit()
     return F.request_out(db, r)
 
@@ -187,15 +192,18 @@ def respond_appointment(appointment_id: uuid.UUID, body: RespondIn, org: Organiz
 
 
 @router.post("/appointments/{appointment_id}/cancel")
-def cancel_appointment(appointment_id: uuid.UUID, org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+def cancel_appointment(appointment_id: uuid.UUID, org: Organization = Depends(current_org), db: Session = Depends(get_db), voice: VoiceCaller = Depends(get_voice)):
     ap = _appointment(db, org, appointment_id)
     if ap.status in ("cancelada", "realizada"):
         raise HTTPException(409, "Esta cita ya no se puede cancelar.")
+    estaba_confirmada = ap.status == "confirmada"
     ap.status = "cancelada"
     from ..models import ServiceCall
     for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == ap.request_id, ServiceCall.status == "en_cola",
                                                    ServiceCall.purpose.in_(("agendar", "recordatorio")))):
         c.status = "cancelada"  # que no salga una llamada de confirmacion de una visita que ya se cancelo
+    if estaba_confirmada:
+        call_results.notify_cancellation(db, ap, voice)  # el tecnico ya habia confirmado: se le avisa
     r = db.get(ServiceRequest, ap.request_id)
     r.status = "lista" if ap.provider_kind == "tecnico" else "sin_cita"
     r.chosen_quote_id = None
