@@ -1,0 +1,21 @@
+Metadata-Version: 2.4
+Name: nidoguard-api
+Version: 0.1.0
+Requires-Python: >=3.10
+Requires-Dist: fastapi
+Requires-Dist: uvicorn[standard]
+Requires-Dist: sqlalchemy>=2
+Requires-Dist: psycopg[binary]
+Requires-Dist: alembic
+Requires-Dist: pydantic-settings
+Requires-Dist: pyjwt[crypto]
+Requires-Dist: httpx
+Requires-Dist: boto3
+Requires-Dist: anthropic
+Requires-Dist: qrcode[pil]
+Requires-Dist: reportlab
+Requires-Dist: pillow
+Requires-Dist: pillow-heif
+Requires-Dist: python-multipart
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"

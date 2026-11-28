@@ -18,6 +18,7 @@ Despliegue inicial: un solo servidor Ubuntu con todo; luego se expande.
 Cuenta y hogar, kits y activacion por QR (codigo de un solo uso con hash en BD + codigo corto escribible), rutas /k/<codigo> y /t/<token>, escaner dentro de la app, alta rapida (etiqueta + foto de placa + ubicacion + nombre), lectura de placa con IA, expediente basico.
 
 ## Documentos
+Diseño: `docs/DISENO_LIQUID_GLASS.md` y `docs/mockups/` (el mockup manda).
 `docs/ESTADO_ETAPA_1.md` (qué está hecho y qué falta), `docs/DECISIONES_RESUMEN.md` (decisiones vigentes). Plan, modelo de datos y decisiones completas viven en el Project NIDOGUARD de claude.ai.
 
 ## Cómo correr y probar (en el Mac del usuario; usa su Postgres 17 de Postgres.app)

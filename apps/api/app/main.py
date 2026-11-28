@@ -1,7 +1,19 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
-from .routers import assets, kits, me, tags
+from .routers import assets, calendar, care, documents, kits, me, service_requests, tags, webhooks
+
+_h = logging.StreamHandler()
+_h.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+_l = logging.getLogger("nidoguard")
+_l.setLevel(logging.INFO)
+if not _l.handlers:
+    _l.addHandler(_h)
+
+if get_settings().calls_enabled and not get_settings().calls_window_enabled:
+    _l.warning("Llamadas habilitadas SIN horario (24 horas). Es solo para pruebas: antes de produccion CALLS_WINDOW_ENABLED=true.")
 
 app = FastAPI(title="NidoGuard API", version="0.1.0")
 app.add_middleware(
@@ -13,6 +25,11 @@ app.include_router(me.router)
 app.include_router(kits.router)
 app.include_router(tags.router)
 app.include_router(assets.router)
+app.include_router(documents.router)
+app.include_router(care.router)
+app.include_router(service_requests.router)
+app.include_router(webhooks.router)
+app.include_router(calendar.router)
 
 
 @app.get("/health")

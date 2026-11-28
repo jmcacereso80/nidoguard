@@ -4,7 +4,10 @@ import io
 from typing import Protocol
 
 from PIL import Image, ImageOps
-from pydantic import BaseModel, Field
+from pillow_heif import register_heif_opener
+
+register_heif_opener()  # los iPhone guardan HEIC; Pillow solo no lo abre
+from pydantic import BaseModel, Field, field_validator
 
 from ..config import get_settings
 
@@ -21,27 +24,37 @@ class PlateExtraction(BaseModel):
     brand: Field_ = Field(default_factory=Field_)
     model: Field_ = Field(default_factory=Field_)
     serial: Field_ = Field(default_factory=Field_)
-    product_number: Field_ = Field(default_factory=Field_)
-    manufacture_date: Field_ = Field(default_factory=Field_)
-    voltage: Field_ = Field(default_factory=Field_)
-    frequency: Field_ = Field(default_factory=Field_)
-    power: Field_ = Field(default_factory=Field_)
-    capacity: Field_ = Field(default_factory=Field_)
-    refrigerant: Field_ = Field(default_factory=Field_)
-    country: Field_ = Field(default_factory=Field_)
-    certifications: Field_ = Field(default_factory=Field_)
     transcript: str = Field(default="", description="Todo el texto visible de la placa, literal")
 
+    @field_validator("category", "brand", "model", "serial", mode="before")
+    @classmethod
+    def _texto_suelto(cls, v):
+        # A veces el modelo devuelve el dato como texto y no como {valor, confianza}: lo aceptamos.
+        if isinstance(v, str):
+            return {"value": v, "confidence": 0.6}
+        if v is None:
+            return {"value": None, "confidence": 0.0}
+        return v
 
-FIELD_NAMES = ["category", "brand", "model", "serial", "product_number", "manufacture_date", "voltage",
-               "frequency", "power", "capacity", "refrigerant", "country", "certifications"]
+
+# Se estandariza a tres datos para todos los equipos (televisores, hornos, etc. no traen mas).
+# El tipo ("category") solo sirve para ponerle nombre al equipo. Lo demas (voltaje, capacidad...)
+# queda en la transcripcion literal y se aprovechara despues en documentos y cuidado.
+FIELD_NAMES = ["category", "brand", "model", "serial"]
 
 PROMPT = (
     "Eres un lector de placas de equipos del hogar (lavadoras, refrigeradores, aires, televisores, etc.). "
-    "Lee la foto de la placa de datos. Reglas: copia los valores EXACTAMENTE como aparecen; si un dato no "
-    "se ve o no estas seguro, usa null y confianza baja; NUNCA inventes ni completes con lo que sabes de la "
-    "marca. Marca legible=false si la foto esta borrosa, cortada o no muestra una placa. "
+    "Recibes fotos etiquetadas: 'placa de datos' (puede haber varias, de la misma placa) y 'equipo completo'. "
+    "De las placas copia marca, modelo y serie EXACTAMENTE como aparecen. La SERIE solo se toma de las placas. "
+    "Si la placa no trae marca o modelo, identificalos con las fotos del equipo completo: la marca por su logotipo; "
+    "el modelo por el texto visible o, si no hay texto, proponiendo el modelo MAS PROBABLE a partir de la marca y "
+    "del diseno del equipo que conoces. Si reconoces la marca y el diseno, DEBES proponer un modelo aunque no "
+    "este escrito: usa confianza maxima 0.5 y escribe 'modelo sugerido por aspecto' en la transcripcion. Solo deja "
+    "el modelo en null si de verdad no reconoces el diseno. "
+    "Tambien las fotos del equipo sirven para el tipo y el nombre. Nunca tomes la serie de una foto del equipo. "
+    "Si un dato no se ve o no estas seguro, usa null y confianza baja. Marca legible=false solo si ninguna placa es legible. "
     "En 'category' usa una palabra en espanol (lavadora, refrigerador, aire acondicionado, television...). "
+    "Extrae SOLO marca, modelo y numero de serie; ignora voltaje, potencia, capacidad y demas datos. "
     "'suggested_name' es un nombre corto en espanol para el equipo. 'transcript' es todo el texto visible."
 )
 
@@ -49,7 +62,7 @@ PROMPT = (
 class PlateReader(Protocol):
     name: str
 
-    def read(self, image: bytes, content_type: str) -> PlateExtraction: ...
+    def read(self, image: bytes, content_type: str, extra: list[tuple[bytes, str, str]] | None = None) -> PlateExtraction: ...
 
 
 def prepare_image(raw: bytes, max_side: int = 1800) -> tuple[bytes, str]:
@@ -69,27 +82,41 @@ class ClaudePlateReader:
         self.name = model or s.plate_model
         self.effort = effort
 
-    def read(self, image: bytes, content_type: str) -> PlateExtraction:
-        data, mt = prepare_image(image)
+    def _create(self, kwargs: dict):
+        # Algunos modelos (p. ej. Sonnet) no aceptan forzar la herramienta: se pide en modo automatico.
+        try:
+            return self.client.messages.create(**kwargs)
+        except Exception as e:
+            if "tool_choice" not in str(e):
+                raise
+            return self.client.messages.create(**{**kwargs, "tool_choice": {"type": "auto"}})
+
+    def read(self, image: bytes, content_type: str, extra: list[tuple[bytes, str, str]] | None = None) -> PlateExtraction:
         tool = {"name": "registrar_placa", "description": "Registra los datos leidos de la placa",
                 "input_schema": PlateExtraction.model_json_schema()}
+        content = []
+        photos = [(image, "placa")] + [(e[0], e[2]) for e in (extra or [])]
+        for i, (raw, kind) in enumerate(photos, start=1):
+            data, mt = prepare_image(raw)
+            label = f"Foto {i}: {'placa de datos' if kind == 'placa' else 'equipo completo'}."
+            content.append({"type": "text", "text": label})
+            content.append({"type": "image", "source": {"type": "base64", "media_type": mt,
+                                                        "data": base64.b64encode(data).decode()}})
+        content.append({"type": "text", "text": PROMPT})
         kwargs = dict(
             model=self.name, max_tokens=2000, tools=[tool],
             tool_choice={"type": "tool", "name": "registrar_placa"},
-            messages=[{"role": "user", "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": mt,
-                                             "data": base64.b64encode(data).decode()}},
-                {"type": "text", "text": PROMPT}]}],
+            messages=[{"role": "user", "content": content}],
         )
         if self.effort:
             kwargs["extra_body"] = {"output_config": {"effort": self.effort}}
         try:
-            resp = self.client.messages.create(**kwargs)
+            resp = self._create(kwargs)
         except Exception:
             if not self.effort:
                 raise
             kwargs.pop("extra_body")
-            resp = self.client.messages.create(**kwargs)
+            resp = self._create(kwargs)
         block = next(b for b in resp.content if b.type == "tool_use")
         return PlateExtraction.model_validate(block.input)
 

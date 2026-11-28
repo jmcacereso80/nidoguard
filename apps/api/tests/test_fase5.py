@@ -17,7 +17,7 @@ class Store:
 
 class Fake:
     def __init__(self, name, extraction): self.name, self.e, self.calls = name, extraction, 0
-    def read(self, image, ct): self.calls += 1; return self.e
+    def read(self, image, ct, extra=None): self.calls += 1; return self.e
 
 
 def ext(legible=True, brand=("Mabe", .95), model=("LMA123", .9)):
@@ -84,3 +84,13 @@ def test_prepare_image_strips_exif_and_resizes():
     data, mt = prepare_image(b.getvalue())
     out = Image.open(io.BytesIO(data))
     assert mt == "image/jpeg" and max(out.size) <= 1800 and 0x010F not in out.getexif()
+
+
+def test_fallback_failure_keeps_primary_reading(db):
+    class Broken:
+        name = "sonnet"
+        def read(self, *a, **k): raise RuntimeError("tool_choice no soportado")
+    a, img = make_asset(db)
+    slow = Broken()
+    r = process_reading(db, Store(), a.id, img.id, Fake("haiku", ext(model=(None, 0))), slow)
+    assert r.status == ReadingStatus.faltan_datos and r.fields["brand"] == "Mabe"

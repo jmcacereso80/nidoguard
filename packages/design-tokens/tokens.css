@@ -1,15 +1,32 @@
-/* Identidad NidoGuard: marino #183B56, azul #7399B5, cobre #C18B58, marfil #F6F2EC. Fuente Manrope. */
+/* Identidad NidoGuard. Fuente de verdad visual: docs/DISENO_LIQUID_GLASS.md y docs/mockups/ */
 :root {
+  /* Marca */
   --ng-navy: #183b56;
   --ng-sky: #7399b5;
   --ng-copper: #c18b58;
   --ng-ivory: #f6f2ec;
-  --ng-ink: #12263a;
-  --ng-ok: #2f7d5b;
-  --ng-warn: #b4691f;
+  /* Texto */
+  --ng-ink: #102b40;
+  --ng-muted: #526574;
+  --ng-body: #3b5163;
+  /* Superficies suaves */
+  --ng-sky-tint: #e4edf4;
+  --ng-copper-tint: #f1e2d3;
+  /* Estados */
+  --ng-ok: #2f6b4a;
+  --ng-warn: #8f5a1f;
   --ng-danger: #b3402f;
-  --ng-glass: rgba(255, 255, 255, 0.62);
-  --ng-glass-edge: rgba(255, 255, 255, 0.85);
-  --ng-radius: 22px;
-  --ng-shadow: 0 8px 30px rgba(24, 59, 86, 0.12);
+  /* Vidrio */
+  --ng-glass: rgba(255, 255, 255, 0.58);
+  --ng-glass-strong: rgba(255, 255, 255, 0.66);
+  --ng-glass-edge: rgba(255, 255, 255, 0.8);
+  --ng-glass-edge-strong: rgba(255, 255, 255, 0.85);
+  --ng-glass-shadow: 0 10px 30px rgba(24, 59, 86, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --ng-glass-shadow-strong: 0 14px 36px rgba(24, 59, 86, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  --ng-dark-gradient: linear-gradient(150deg, rgba(115, 153, 181, 0.92), rgba(24, 59, 86, 0.97));
+  /* Radios: tarjeta grande 30, tarjeta 26-28, fila 22, ficha 14, pastilla total */
+  --ng-r-xl: 30px;
+  --ng-r-lg: 26px;
+  --ng-r-md: 22px;
+  --ng-r-sm: 14px;
 }

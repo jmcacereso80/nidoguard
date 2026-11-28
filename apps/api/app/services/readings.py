@@ -22,10 +22,15 @@ def _needs_fallback(r: PlateExtraction) -> bool:
     return any((getattr(r, f).value is None or getattr(r, f).confidence < low) for f in KEY_FIELDS)
 
 
-def read_with_fallback(image: bytes, content_type: str, reader: PlateReader, fallback: PlateReader | None):
-    result, used = reader.read(image, content_type), reader.name
+def read_with_fallback(image: bytes, content_type: str, reader: PlateReader, fallback: PlateReader | None,
+                       extra: list[tuple[bytes, str, str]] | None = None):
+    result, used = reader.read(image, content_type, extra), reader.name
     if fallback is not None and _needs_fallback(result):
-        better = fallback.read(image, content_type)
+        try:
+            better = fallback.read(image, content_type, extra)
+        except Exception:  # si el respaldo falla, nos quedamos con lo que ya leyo el principal
+            log.exception("fallo el modelo de respaldo; se conserva la lectura principal")
+            return result, used
         if better.legible:
             result, used = better, fallback.name
     return result, used
@@ -34,14 +39,21 @@ def read_with_fallback(image: bytes, content_type: str, reader: PlateReader, fal
 def process_reading(db: Session, storage: Storage, asset_id: uuid.UUID, image_id: uuid.UUID,
                     reader: PlateReader, fallback: PlateReader | None = None) -> AssetReading:
     asset = db.get(EquipmentAsset, asset_id)
-    img = db.get(AssetImage, image_id)
+    # Todas las fotos subidas del equipo: placas primero, luego las del equipo completo (max. 4).
+    imgs = list(db.scalars(select(AssetImage).where(AssetImage.asset_id == asset_id, AssetImage.uploaded.is_(True))
+                           .order_by((AssetImage.kind != "placa").asc(), AssetImage.created_at.desc()).limit(4)))
+    if not imgs:
+        imgs = [db.get(AssetImage, image_id)]
+    img, extra_imgs = imgs[0], imgs[1:]
     reading = db.scalar(select(AssetReading).where(AssetReading.asset_id == asset_id, AssetReading.source == "ia")
                         .order_by(AssetReading.created_at.desc()))
     if reading is None:
         reading = AssetReading(asset_id=asset_id, organization_id=asset.organization_id, source="ia")
         db.add(reading)
     try:
-        result, used = read_with_fallback(storage.get_bytes(img.storage_key), img.content_type, reader, fallback)
+        extra = [(storage.get_bytes(o.storage_key), o.content_type, o.kind) for o in extra_imgs]
+        result, used = read_with_fallback(storage.get_bytes(img.storage_key), img.content_type, reader, fallback,
+                                          extra or None)
     except Exception as e:  # la lectura nunca debe romper el alta
         log.exception("fallo la lectura de la placa")
         reading.status, reading.error = ReadingStatus.error, str(e)[:500]
@@ -61,6 +73,9 @@ def process_reading(db: Session, storage: Storage, asset_id: uuid.UUID, image_id
         reading.status, asset.status = ReadingStatus.faltan_datos, AssetStatus.faltan_datos
     else:
         reading.status, asset.status = ReadingStatus.lista, AssetStatus.por_confirmar
+    if (asset.extra or {}).get("nombre_pendiente") and fields.get("suggested_name"):
+        asset.name = fields["suggested_name"][:200]
+        asset.extra = {**asset.extra, "nombre_pendiente": False}
     db.add(AssetEvent(asset_id=asset_id, organization_id=asset.organization_id, type="lectura_ia",
                       payload={"estado": reading.status.value, "modelo_ia": used}))
     db.commit()

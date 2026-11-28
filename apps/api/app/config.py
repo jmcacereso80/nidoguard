@@ -16,18 +16,48 @@ class Settings(BaseSettings):
     clerk_api_key: str = ""  # clave publicable pk_...
     clerk_secret_key: str = ""
     claude_key: str = ""
+    apify_token: str = ""  # busqueda de Google con el actor apify/google-search-scraper
     cloudflare_account_id: str = ""
     cloudflare_api_token: str = ""
 
     r2_bucket: str = "nidoguard-private"
+    r2_knowledge_bucket: str = "nidoguard-knowledge"
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
     app_url: str = "https://app.nidoguard.com"
     cors_origins: str = "http://localhost:3000"
 
+    line_finder: str = "auto"  # auto (Apify y, si no sale, Claude) | apify | claude | off: busca por internet la linea de servicio de cada marca (queda por verificar)
+    apify_search_actor: str = "apify~google-search-scraper"
+    line_finder_model: str = "claude-sonnet-5-5"
+    care_model: str = "claude-haiku-5-5"  # genera los cuidados de cada equipo
     plate_model: str = "claude-haiku-5-5"
     plate_fallback_model: str = "claude-sonnet-5-5"
     plate_min_confidence: float = 0.7
+
+    apify_maps_actor: str = "compass~crawler-google-places"  # el CLI confirma el actor y su costo antes del piloto
+    provider_source: str = "apify"  # apify | fake
+    provider_ttl_days: int = 90
+    voice: str = "fake"  # fake | retell. Con 'fake' nunca se llama a nadie
+    calls_enabled: bool = False  # interruptor general de llamadas reales
+    calls_allowlist: str = ""  # telefonos E.164 permitidos mientras dure el piloto, separados por coma
+    retell_api_key: str = ""  # tambien firma los webhooks de Retell
+    retell_agent_id: str = ""  # agente cotizador
+    retell_agent_id_fabricante: str = ""  # agente para el centro de atencion del fabricante (opcional: usa el cotizador si falta)
+    retell_from_number: str = ""  # numero E.164 desde el que se llama
+    retell_agent_id_agenda: str = ""  # agente que agenda la visita y hace el recordatorio (usa el cotizador si falta)
+    calls_window_enabled: bool = False  # PRUEBAS: 24 horas. ANTES DE PRODUCCION poner True (solo lunes a sabado de 9:00 a 19:00, hora de Mexico)
+    calls_window_start: int = 9
+    calls_window_end: int = 19
+    calls_retry_after_min: int = 120  # segundo intento a quien no contesto
+    request_ttl_hours: int = 24  # la busqueda se cierra con lo que haya
+    max_cost_per_request_usd: float = 3.0
+    max_cost_per_day_usd: float = 15.0
+    calls_wave: int = 3  # llamadas simultaneas por solicitud
+    quote_model: str = "claude-sonnet-5-5"  # extrae la cotizacion de la transcripcion
+    fake_voice_step_seconds: int = 4  # cada cuanto "termina" una llamada falsa
+    geocoder: str = "nominatim"  # nominatim | fake
+    geocoder_user_agent: str = "NidoGuard/1.0 (contacto@nidoguard.com)"
 
     claim_max_failures_per_hour: int = 10
 

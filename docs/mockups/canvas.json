@@ -1,0 +1,245 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-11-25T16:30:00Z"
+ },
+ "title": "NidoGuard — Mockup Liquid Glass",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Main.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Inicio",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "Equipos.dc.html": {
+   "x": 470,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Equipos",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "Cuidado.dc.html": {
+   "x": 940,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Cuidado",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "Servicios.dc.html": {
+   "x": 1410,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Servicios",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "Vacio.dc.html": {
+   "x": 0,
+   "y": 1224,
+   "w": 390,
+   "h": 844,
+   "title": "Inicio sin equipos",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "Escanear.dc.html": {
+   "x": 470,
+   "y": 1224,
+   "w": 390,
+   "h": 844,
+   "title": "Escanear",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "Confirmar.dc.html": {
+   "x": 940,
+   "y": 1224,
+   "w": 390,
+   "h": 844,
+   "title": "Alta rápida",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "Equipo.dc.html": {
+   "x": 1410,
+   "y": 1224,
+   "w": 390,
+   "h": 844,
+   "title": "Expediente del equipo",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "CargaClaro.dc.html": {
+   "x": 0,
+   "y": 2448,
+   "w": 390,
+   "h": 844,
+   "title": "Carga, claro",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "CargaOscuro.dc.html": {
+   "x": 470,
+   "y": 2448,
+   "w": 390,
+   "h": 844,
+   "title": "Carga, oscuro",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "EquipoDocs.dc.html": {
+   "x": 0,
+   "y": 3672,
+   "w": 390,
+   "h": 844,
+   "title": "Expediente: Documentos",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "EquipoCuidado.dc.html": {
+   "x": 470,
+   "y": 3672,
+   "w": 390,
+   "h": 844,
+   "title": "Expediente: Cuidado",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "EquipoHistorial.dc.html": {
+   "x": 940,
+   "y": 3672,
+   "w": 390,
+   "h": 844,
+   "title": "Expediente: Historial",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "AltaUbicacion.dc.html": {
+   "x": 0,
+   "y": 4896,
+   "w": 390,
+   "h": 844,
+   "title": "Alta rápida: nueva ubicación",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "AltaManual.dc.html": {
+   "x": 470,
+   "y": 4896,
+   "w": 390,
+   "h": 844,
+   "title": "Alta manual",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "PorConfirmar.dc.html": {
+   "x": 940,
+   "y": 4896,
+   "w": 390,
+   "h": 844,
+   "title": "Por confirmar",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "Landing.dc.html": {
+   "x": 0,
+   "y": 6120,
+   "w": 390,
+   "h": 5300,
+   "title": "Landing móvil",
+   "is_interactive": true,
+   "expand": "fill",
+   "radius": 44
+  },
+  "EquipoDocsVacio.dc.html": {
+   "x": 1410,
+   "y": 3672,
+   "w": 390,
+   "h": 844,
+   "title": "Expediente: Documentos, sin subir",
+   "is_interactive": true,
+   "radius": 44
+  },
+  "CuidadoMes.dc.html": {
+   "x": 1880,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Cuidado: vista de mes",
+   "is_interactive": true,
+   "radius": 44
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "Equipos.dc.html",
+  "Cuidado.dc.html",
+  "CuidadoMes.dc.html",
+  "Servicios.dc.html",
+  "Vacio.dc.html",
+  "Escanear.dc.html",
+  "Confirmar.dc.html",
+  "Equipo.dc.html",
+  "CargaClaro.dc.html",
+  "CargaOscuro.dc.html",
+  "EquipoDocs.dc.html",
+  "EquipoDocsVacio.dc.html",
+  "EquipoCuidado.dc.html",
+  "EquipoHistorial.dc.html",
+  "AltaUbicacion.dc.html",
+  "AltaManual.dc.html",
+  "PorConfirmar.dc.html",
+  "Landing.dc.html"
+ ],
+ "notes": {
+  "t1": {
+   "x": 0,
+   "y": -260,
+   "text": "Pantallas principales",
+   "kind": "title1",
+   "maxW": 2270
+  },
+  "t2": {
+   "x": 0,
+   "y": 964,
+   "text": "Primer registro y expediente",
+   "kind": "title1",
+   "maxW": 1800
+  },
+  "t5": {
+   "x": 0,
+   "y": 4636,
+   "text": "Alta rápida y datos por confirmar",
+   "kind": "title1",
+   "maxW": 1330
+  },
+  "t4": {
+   "x": 0,
+   "y": 3412,
+   "text": "Pestañas del expediente",
+   "kind": "title1",
+   "maxW": 1800
+  },
+  "t3": {
+   "x": 0,
+   "y": 2188,
+   "text": "Logotipo: versión clara y oscura",
+   "kind": "title1",
+   "maxW": 860
+  }
+ },
+ "designSystems": []
+}

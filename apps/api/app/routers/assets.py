@@ -1,8 +1,9 @@
 import uuid
-from datetime import datetime, timezone
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from typing import Literal
+from datetime import date, datetime, timezone
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from ..db import get_db
 from ..models import (
@@ -10,18 +11,20 @@ from ..models import (
     ReadingStatus, SmartTag, Space, Property, TagStatus, User,
 )
 from ..security import current_org, current_user
-from ..services import readings
+from ..services import care as care_service, manuales, readings, service_contacts
+from ..services.providers import to_e164_mx
 from ..services.storage import ALLOWED_TYPES, MAX_BYTES, Storage, get_storage
 
 router = APIRouter(prefix="/assets", tags=["equipos"])
 
+NAME_PENDING = "Equipo sin nombre"
 PENDING = (AssetStatus.registrado, AssetStatus.leido, AssetStatus.por_confirmar,
            AssetStatus.necesita_foto, AssetStatus.faltan_datos)
 
 
 class AssetIn(BaseModel):
     tag_token: str
-    name: str = Field(min_length=1, max_length=200)
+    name: str | None = Field(default=None, max_length=200)  # si no viene, la IA lo sugiere de la placa
     space_id: uuid.UUID | None = None
     new_space_name: str | None = Field(default=None, max_length=120)
     plate_content_type: str | None = None
@@ -60,6 +63,7 @@ def _out(a: EquipmentAsset):
     return {"id": str(a.id), "name": a.name, "status": a.status.value, "category": a.category,
             "brand": a.brand, "model": a.model, "serial": a.serial, "extra": a.extra,
             "space_id": str(a.space_id) if a.space_id else None,
+            "service_contacts": service_contacts.contacts_out(a, datetime.now(timezone.utc).date()),
             "created_at": a.created_at.isoformat()}
 
 
@@ -77,14 +81,16 @@ def create_asset(body: AssetIn, user: User = Depends(current_user), org: Organiz
         if not space:
             raise HTTPException(404, "No encontramos esa ubicación.")
     elif body.new_space_name and body.new_space_name.strip():
-        prop = db.scalar(select(Property).where(Property.organization_id == org.id).order_by(Property.created_at))
+        prop = db.scalar(select(Property).where(Property.organization_id == org.id).order_by(Property.is_primary.desc(), Property.created_at))
         space = Space(organization_id=org.id, property_id=prop.id, name=body.new_space_name.strip())
         db.add(space)
         db.flush()
     else:
         raise HTTPException(422, "Elige dónde está el equipo.")
-    asset = EquipmentAsset(organization_id=org.id, tag_id=tag.id, space_id=space.id, name=body.name.strip(),
-                           created_by=user.id, extra={})
+    given = (body.name or "").strip()
+    asset = EquipmentAsset(organization_id=org.id, tag_id=tag.id, space_id=space.id,
+                           name=given or NAME_PENDING, created_by=user.id,
+                           extra={} if given else {"nombre_pendiente": True})
     db.add(asset)
     db.flush()
     tag.status = TagStatus.vinculada
@@ -105,6 +111,53 @@ def create_asset(body: AssetIn, user: User = Depends(current_user), org: Organiz
     return out
 
 
+class PhotoIn(BaseModel):
+    content_type: str
+    kind: Literal["placa", "equipo"] = "placa"
+
+
+@router.post("/{asset_id}/fotos")
+def new_photo(asset_id: uuid.UUID, body: PhotoIn, org: Organization = Depends(current_org),
+              db: Session = Depends(get_db), storage: Storage = Depends(get_storage)):
+    """Foto nueva para un equipo que ya existe (p. ej. la anterior salio borrosa)."""
+    a = _own(db, org, asset_id)
+    ext = ALLOWED_TYPES.get(body.content_type)
+    if not ext:
+        raise HTTPException(422, "Formato de foto no permitido. Usa JPG, PNG, WEBP o HEIC.")
+    # Un lugar por tipo: la foto nueva de la placa sustituye a la placa anterior, y la del equipo a la del equipo.
+    previas = list(db.scalars(select(AssetImage).where(AssetImage.asset_id == a.id, AssetImage.kind == body.kind)))
+    for vieja in previas:
+        try:
+            storage.delete(vieja.storage_key)
+        except Exception:
+            pass
+        db.delete(vieja)
+    db.flush()
+    img_id = uuid.uuid4()
+    key = f"org/{org.id}/assets/{a.id}/{img_id}.{ext}"
+    db.add(AssetImage(id=img_id, asset_id=a.id, organization_id=org.id, kind=body.kind,
+                      storage_key=key, content_type=body.content_type))
+    db.commit()
+    return {"image_id": str(img_id), "method": "PUT", "url": storage.presign_put(key, body.content_type),
+            "headers": {"Content-Type": body.content_type}}
+
+
+@router.post("/{asset_id}/releer")
+def read_again(asset_id: uuid.UUID, tasks: BackgroundTasks, org: Organization = Depends(current_org),
+               db: Session = Depends(get_db)):
+    """Vuelve a leer la placa con las fotos que ya estan subidas (p. ej. tras un error de la IA)."""
+    a = _own(db, org, asset_id)
+    img = db.scalar(select(AssetImage).where(AssetImage.asset_id == a.id, AssetImage.uploaded.is_(True))
+                    .order_by((AssetImage.kind != "placa").asc(), AssetImage.created_at.desc()))
+    if not img:
+        raise HTTPException(409, "Este equipo no tiene una foto subida para leer.")
+    a.status = AssetStatus.registrado
+    db.add(AssetReading(asset_id=a.id, organization_id=org.id, source="ia", status=ReadingStatus.procesando))
+    db.commit()
+    tasks.add_task(readings.enqueue_reading, a.id, img.id)
+    return {"ok": True}
+
+
 @router.post("/{asset_id}/images/{image_id}/uploaded")
 def image_uploaded(asset_id: uuid.UUID, image_id: uuid.UUID, tasks: BackgroundTasks,
                    org: Organization = Depends(current_org), db: Session = Depends(get_db),
@@ -119,10 +172,17 @@ def image_uploaded(asset_id: uuid.UUID, image_id: uuid.UUID, tasks: BackgroundTa
     if info["size"] > MAX_BYTES:
         raise HTTPException(413, "La foto es demasiado pesada (máximo 12 MB).")
     img.uploaded = True
-    db.add(AssetReading(asset_id=asset.id, organization_id=org.id, source="ia", status=ReadingStatus.procesando))
+    # Una foto del equipo sola espera a la placa; si el equipo ya fue leido, se vuelve a leer con todas.
+    leido = db.scalar(select(func.count()).select_from(AssetReading).where(
+        AssetReading.asset_id == asset.id, AssetReading.source == "ia")) or 0
+    if img.kind == "placa" or leido:
+        asset.status = AssetStatus.registrado
+        db.add(AssetReading(asset_id=asset.id, organization_id=org.id, source="ia", status=ReadingStatus.procesando))
+        db.commit()
+        tasks.add_task(readings.enqueue_reading, asset.id, img.id)
+        return {"ok": True, "lectura": True}
     db.commit()
-    tasks.add_task(readings.enqueue_reading, asset.id, img.id)
-    return {"ok": True}
+    return {"ok": True, "lectura": False}
 
 
 @router.get("")
@@ -160,8 +220,94 @@ def _apply(a: EquipmentAsset, f: dict):
         a.extra = {**(a.extra or {}), **f["extra"]}
 
 
+class AssetEditIn(BaseModel):
+    """Campos que el usuario puede corregir. Solo cambia lo que se manda."""
+    name: str | None = Field(default=None, max_length=200)
+    space_id: uuid.UUID | None = None
+    category: str | None = Field(default=None, max_length=80)
+    brand: str | None = Field(default=None, max_length=120)
+    model: str | None = Field(default=None, max_length=120)
+    serial: str | None = Field(default=None, max_length=120)
+
+
+@router.patch("/{asset_id}")
+def edit_asset(asset_id: uuid.UUID, body: AssetEditIn, tasks: BackgroundTasks, user: User = Depends(current_user),
+               org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+    a = _own(db, org, asset_id)
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        return _out(a)
+    if "name" in changes and not (changes["name"] or "").strip():
+        raise HTTPException(422, "El equipo necesita un nombre.")
+    if "space_id" in changes:
+        if changes["space_id"] is None:
+            raise HTTPException(422, "Elige dónde está el equipo.")
+        space = db.scalar(select(Space).where(Space.id == changes["space_id"], Space.organization_id == org.id))
+        if not space:
+            raise HTTPException(404, "No encontramos esa ubicación.")
+        a.space_id = space.id
+    for k in ("name", "category", "brand", "model", "serial"):
+        if k in changes:
+            v = (changes[k] or "").strip() or None
+            setattr(a, k, v)
+    if "name" in changes:
+        a.extra = {**(a.extra or {}), "nombre_pendiente": False}
+    _event(db, a, "edicion", user, fields=sorted(changes.keys()))
+    db.commit()
+    if {"brand", "model"} & set(changes):
+        manuales.pedir_manual(db, a, tasks)
+    tasks.add_task(care_service.prepare_in_background, a.id)
+    return _out(a)
+
+
+class ServiceContactsIn(BaseModel):
+    maker_name: str | None = Field(default=None, max_length=80)
+    maker_phone: str | None = Field(default=None, max_length=30)
+    store_name: str | None = Field(default=None, max_length=80)
+    store_phone: str | None = Field(default=None, max_length=30)
+    store_until: date | None = None  # hasta cuando la tienda cubre la garantia (despues es con el fabricante)
+
+
+@router.put("/{asset_id}/service-contacts")
+def put_service_contacts(asset_id: uuid.UUID, body: ServiceContactsIn, user: User = Depends(current_user),
+                         org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+    """El fabricante y la tienda donde se compró: nombre y teléfono. Se reemplaza todo lo anterior (lo vacío se borra)."""
+    a = _own(db, org, asset_id)
+    phones = {}
+    for k in ("maker_phone", "store_phone"):
+        raw = (getattr(body, k) or "").strip()
+        phones[k] = to_e164_mx(raw) if raw else None
+        if raw and not phones[k]:
+            raise HTTPException(422, "Escribe el teléfono a 10 dígitos, con lada.")
+    clean = lambda t: (t or "").strip() or None
+    service_contacts.save(a, clean(body.maker_name), phones["maker_phone"], clean(body.store_name), phones["store_phone"], body.store_until)
+    _event(db, a, "edicion", user, fields=["service_contacts"])
+    db.commit()
+    return _out(a)
+
+
+@router.delete("/{asset_id}", status_code=204)
+def delete_asset(asset_id: uuid.UUID, org: Organization = Depends(current_org), db: Session = Depends(get_db),
+                 storage: Storage = Depends(get_storage)):
+    """Elimina el equipo y su historial. La etiqueta vuelve a quedar disponible para otro equipo."""
+    a = _own(db, org, asset_id)
+    keys = list(db.scalars(select(AssetImage.storage_key).where(AssetImage.asset_id == a.id)))
+    if a.tag_id:
+        tag = db.get(SmartTag, a.tag_id)
+        if tag:
+            tag.status = TagStatus.disponible
+    db.delete(a)              # lecturas, fotos y eventos se borran en cascada (ON DELETE CASCADE)
+    db.commit()
+    for key in keys:          # la foto privada tambien se borra de R2; si falla, no bloquea el borrado
+        try:
+            storage.delete(key)
+        except Exception:
+            pass
+    return Response(status_code=204)
+
+
 @router.patch("/{asset_id}/manual")
-def manual_data(asset_id: uuid.UUID, body: ManualIn, user: User = Depends(current_user),
+def manual_data(asset_id: uuid.UUID, body: ManualIn, tasks: BackgroundTasks, user: User = Depends(current_user),
                 org: Organization = Depends(current_org), db: Session = Depends(get_db)):
     a = _own(db, org, asset_id)
     data = body.model_dump(exclude_none=True)
@@ -171,31 +317,39 @@ def manual_data(asset_id: uuid.UUID, body: ManualIn, user: User = Depends(curren
     a.status = AssetStatus.completo
     _event(db, a, "datos_manuales", user, fields=list(data))
     db.commit()
+    manuales.pedir_manual(db, a, tasks)
+    tasks.add_task(care_service.prepare_in_background, a.id)
     return _out(a)
 
 
 @router.post("/{asset_id}/confirm")
-def confirm(asset_id: uuid.UUID, body: ConfirmIn, user: User = Depends(current_user),
+def confirm(asset_id: uuid.UUID, body: ConfirmIn, tasks: BackgroundTasks, user: User = Depends(current_user),
             org: Organization = Depends(current_org), db: Session = Depends(get_db)):
     a = _own(db, org, asset_id)
     r = _latest_reading(db, a.id)
-    base = dict(r.fields) if r and r.status == ReadingStatus.lista else {}
+    # Se confirma lo que se leyo, aunque falten datos (p. ej. solo la serie); lo demas se escribe a mano.
+    base = dict(r.fields) if r and r.status in (ReadingStatus.lista, ReadingStatus.faltan_datos) else {}
     edits = body.model_dump(exclude_none=True)
     name = edits.pop("name", None)
     _apply(a, {**base, **edits})
-    if name:
+    if name and name.strip():
         a.name = name.strip()
+        a.extra = {**(a.extra or {}), "nombre_pendiente": False}
+    if (a.extra or {}).get("nombre_pendiente"):
+        raise HTTPException(422, "Escribe qué equipo es antes de confirmar.")
     if r:
         r.confirmed_at = datetime.now(timezone.utc)
     a.status = AssetStatus.completo
     _event(db, a, "confirmado", user)
     db.commit()
+    manuales.pedir_manual(db, a, tasks)
+    tasks.add_task(care_service.prepare_in_background, a.id)
     return _out(a)
 
 
 @router.post("/confirm-bulk")
-def confirm_bulk(body: BulkIn, user: User = Depends(current_user), org: Organization = Depends(current_org),
-                 db: Session = Depends(get_db)):
+def confirm_bulk(body: BulkIn, tasks: BackgroundTasks, user: User = Depends(current_user),
+                 org: Organization = Depends(current_org), db: Session = Depends(get_db)):
     done, skipped = [], []
     for aid in body.ids:
         a = db.scalar(select(EquipmentAsset).where(EquipmentAsset.id == aid, EquipmentAsset.organization_id == org.id))
@@ -209,4 +363,6 @@ def confirm_bulk(body: BulkIn, user: User = Depends(current_user), org: Organiza
         _event(db, a, "confirmado", user, bulk=True)
         done.append(str(aid))
     db.commit()
+    for aid in done:
+        tasks.add_task(care_service.prepare_in_background, uuid.UUID(aid))
     return {"confirmed": done, "skipped": skipped}
