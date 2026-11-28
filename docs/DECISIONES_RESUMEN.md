@@ -64,3 +64,7 @@ Nuevo: escanea QR de la hoja → "Crea tu cuenta para activar tu kit" → kit re
 - El agente presenta el fallo como "el cliente reporta que…" (equipo, fallo con las palabras del cliente, qué se necesita), confirma que se entendió y nunca inventa causas. Bloque "CÓMO PRESENTAR EL FALLO" en todos los agentes.
 - En la confirmación de la cita avisa "le voy a dictar la dirección… ¿tiene dónde anotar o lo espero?", espera, dicta despacio en partes y pregunta si lo anotó completo. La llamada `agendar` ahora lleva `sintoma`.
 - Aplicar con `python -m admin.agentes ajustar --aplicar`.
+
+## Calendario de Apple en iPhone
+- El enlace de datos (`data:text/calendar`) no abre en Safari del iPhone. Ahora el botón Apple pide `POST /calendar/link` (con sesión) y abre `GET /calendar/<token>.ics` (sin sesión, firmado con HMAC, caduca a los 30 min, no guarda nada) con `Content-Type: text/calendar` y `inline`; así iOS muestra "Agregar a Calendario". Secreto: `CALENDAR_SECRET` (si falta, usa `CLERK_SECRET_KEY`).
+- Nota: el evento (con la dirección) viaja dentro del enlace firmado y puede verse en los registros del servidor; si molesta, se quita la dirección del evento.

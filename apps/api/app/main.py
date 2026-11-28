@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
-from .routers import assets, care, documents, kits, me, service_requests, tags, webhooks
+from .routers import assets, calendar, care, documents, kits, me, service_requests, tags, webhooks
 
 _h = logging.StreamHandler()
 _h.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
@@ -29,6 +29,7 @@ app.include_router(documents.router)
 app.include_router(care.router)
 app.include_router(service_requests.router)
 app.include_router(webhooks.router)
+app.include_router(calendar.router)
 
 
 @app.get("/health")
