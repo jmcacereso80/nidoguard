@@ -78,3 +78,7 @@ Nuevo: escanea QR de la hoja → "Crea tu cuenta para activar tu kit" → kit re
 - Causa probable: si `RETELL_AGENT_ID_AGENDA` está vacío o igual al cotizador, `retell.dial` usa el agente cotizador también para agendar/recordatorio/cancelar, y las reglas de la cita no se aplicaban a ese agente.
 - `admin.agentes ajustar` ahora pone al inicio de TODOS los agentes (menos fabricante) un bloque "TIPO DE LLAMADA" (si `{{tipo}}` es agendar/recordatorio/cancelar: nunca cotizar) y aplica las reglas de la cita condicionadas a `{{tipo}}`; avisa si falta el agente de agenda.
 - Pendiente de fondo: duplicar el agente en Retell como "NidoGuard Agenda" con saludo de cita y poner su id en `RETELL_AGENT_ID_AGENDA` (el saludo del cotizador pide cotizar y no se cambia por prompt).
+
+## Saludo propio para las llamadas de cita
+- El saludo del agente se dice antes de leer el prompt, así que un bloque de reglas no basta: la confirmación abría con las preguntas de cotizar. Ahora la llamada trae la variable `saludo` (agendar, recordatorio, cancelar) y el agente de agenda abre con `{{saludo}}`.
+- `python -m admin.agentes crear-agenda [--aplicar]` clona el cotizador como "NidoGuard Agenda" (mismo modelo y voz) con ese saludo. Después, poner su id en `RETELL_AGENT_ID_AGENDA` y correr `ajustar --aplicar`.

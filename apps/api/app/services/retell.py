@@ -53,6 +53,12 @@ def dynamic_variables(ctx: CallContext) -> dict[str, str]:
          "urgencia": ctx.urgency or "", "zona": ctx.zone, "negocio": ctx.business_name or ""}
     if ctx.kind in ("cotizar", "agendar", "recordatorio"):  # el agente siempre ve estos dos datos; si faltan, lo dice y no inventa
         v["marca"], v["modelo"] = "sin dato", "sin dato"
+    franja = str(ctx.extra.get("franja_elegida") or "la fecha acordada")
+    saludos = {"agendar": f"Hola, buen día. Le llamo de NidoGuard para dejar confirmada la visita que usted ofreció, {franja}. ¿Tiene un momento?",
+               "recordatorio": f"Hola, buen día. Le llamo de NidoGuard para recordarle la visita de {franja}. ¿Tiene un momento?",
+               "cancelar": f"Hola, buen día. Le llamo de NidoGuard por la visita de {franja}. ¿Tiene un momento?"}
+    if ctx.kind in saludos:  # el agente de agenda abre con {{saludo}}: nunca con el saludo de cotizar
+        v["saludo"] = saludos[ctx.kind]
     for k, val in ctx.extra.items():
         if k in {"marca", "modelo", "serie", "fecha_compra", "titular", "direccion", "telefono_titular", "franja_elegida", "precio", "nombre", "telefono_cliente", "acceso"} and val:
             v[k] = str(val)

@@ -448,3 +448,12 @@ def test_bloque_de_tipo_impide_cotizar_en_la_confirmacion():
     assert t.startswith(agentes.MARCA_TIPO) and agentes.FIN_TIPO in t and "{{tipo}}" in t
     assert "NUNCA pidas precio" in t and "{{precio}}" in t
     assert "SOLO cuando {{tipo}} es agendar" in agentes.REGLAS_AGENDA
+
+
+def test_saludo_de_cita_nunca_es_el_de_cotizar():
+    from app.services.voice import CallContext
+    from app.services.retell import dynamic_variables
+    for kind, palabra in (("agendar", "confirmada la visita"), ("recordatorio", "recordarle"), ("cancelar", "por la visita")):
+        v = dynamic_variables(CallContext(kind=kind, service="x", equipment="refri", symptom=None, urgency="normal", zone="Roma", extra={"franja_elegida": "lunes 9 a 11"}))
+        assert palabra in v["saludo"] and "lunes 9 a 11" in v["saludo"] and "cotiz" not in v["saludo"].lower()
+    assert "saludo" not in dynamic_variables(CallContext(kind="cotizar", service="x", equipment="refri", symptom=None, urgency="normal", zone="Roma"))

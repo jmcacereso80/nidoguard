@@ -81,9 +81,45 @@ AJUSTES = {
 }
 
 
+SALUDO_AGENDA = "{{saludo}}"
+COPIA_LLM = ("model", "general_prompt", "general_tools", "states", "starting_state", "model_temperature", "model_high_priority", "tool_call_strict_mode", "knowledge_base_ids", "default_dynamic_variables")
+COPIA_AGENTE = ("voice_id", "language", "voice_model", "voice_temperature", "voice_speed", "volume", "responsiveness", "interruption_sensitivity", "enable_backchannel",
+                "ambient_sound", "ambient_sound_volume", "normalize_for_speech", "end_call_after_silence_ms", "max_call_duration_ms", "reminder_trigger_ms", "reminder_max_count",
+                "webhook_url", "post_call_analysis_data", "post_call_analysis_model", "boosted_keywords", "pronunciation_dictionary", "stt_mode", "denoising_mode", "data_storage_setting")
+
+
+def crear_agenda(aplicar: bool):
+    """Clona el agente cotizador como "NidoGuard Agenda": mismo modelo, voz y prompt, pero abre con {{saludo}} (confirmar, recordar o avisar), nunca con el saludo de cotizar."""
+    s = get_settings()
+    if not s.retell_api_key or not s.retell_agent_id:
+        raise SystemExit("Falta RETELL_API_KEY o RETELL_AGENT_ID en el .env.")
+    if s.retell_agent_id_agenda and s.retell_agent_id_agenda != s.retell_agent_id:
+        raise SystemExit("Ya hay un RETELL_AGENT_ID_AGENDA distinto del cotizador. Corre `ajustar --aplicar` para ponerle las reglas.")
+    h = {"Authorization": f"Bearer {s.retell_api_key}"}
+    ag = httpx.get(f"{API}/get-agent/{s.retell_agent_id}", headers=h, timeout=20); ag.raise_for_status(); ag = ag.json()
+    eng = ag.get("response_engine") or {}
+    if eng.get("type") != "retell-llm":
+        raise SystemExit("El cotizador no usa Retell LLM: duplícalo a mano en Retell y ponle como saludo {{saludo}}.")
+    llm = httpx.get(f"{API}/get-retell-llm/{eng['llm_id']}", headers=h, timeout=20); llm.raise_for_status(); llm = llm.json()
+    print(f"Cotizador {s.retell_agent_id[:8]}…: saludo actual = {(llm.get('begin_message') or '(el agente habla primero según el prompt)')!r}")
+    print(f"Se creará 'NidoGuard Agenda' con el mismo modelo y voz, y saludo {SALUDO_AGENDA!r}.")
+    if not aplicar:
+        print("\nNo cambié nada. Corre `python -m admin.agentes crear-agenda --aplicar`.")
+        return
+    nllm = httpx.post(f"{API}/create-retell-llm", json={**{k: llm[k] for k in COPIA_LLM if llm.get(k) is not None}, "begin_message": SALUDO_AGENDA}, headers=h, timeout=30)
+    nllm.raise_for_status()
+    body = {**{k: ag[k] for k in COPIA_AGENTE if ag.get(k) is not None}, "agent_name": "NidoGuard Agenda",
+            "response_engine": {"type": "retell-llm", "llm_id": nllm.json()["llm_id"]}}
+    nag = httpx.post(f"{API}/create-agent", json=body, headers=h, timeout=30)
+    nag.raise_for_status()
+    print(f"Listo. Pon en el .env: RETELL_AGENT_ID_AGENDA={nag.json()['agent_id']}  (no es una llave). Luego corre `ajustar --aplicar` para ponerle las reglas de la cita.")
+
+
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("cmd", choices=["ajustar"]); ap.add_argument("--aplicar", action="store_true")
+    ap = argparse.ArgumentParser(); ap.add_argument("cmd", choices=["ajustar", "crear-agenda"]); ap.add_argument("--aplicar", action="store_true")
     a = ap.parse_args()
+    if a.cmd == "crear-agenda":
+        return crear_agenda(a.aplicar)
     s = get_settings()
     if not s.retell_api_key:
         raise SystemExit("Falta RETELL_API_KEY en el .env.")
