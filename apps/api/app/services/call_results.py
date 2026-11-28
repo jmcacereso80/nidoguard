@@ -85,7 +85,7 @@ def _ctx(db: Session, req: ServiceRequest, call: ServiceCall) -> tuple[CallConte
                 extra["telefono_cliente"] = user.phone_e164
         else:
             extra["franja_elegida"] = ap.starts_at.astimezone(MX).strftime("%d/%m a las %H:%M") if ap and ap.starts_at else ""
-        return CallContext(kind=call.purpose, service=q.scope_quoted if q else req.scope_text, equipment=req.equipment_label or "equipo", symptom=None,
+        return CallContext(kind=call.purpose, service=q.scope_quoted if q else req.scope_text, equipment=req.equipment_label or "equipo", symptom=req.symptom if call.purpose == "agendar" else None,
                            urgency=req.urgency, zone=zone, business_name=p.name, extra=extra), p.phone_e164
     return CallContext(kind="cotizar", service=req.scope_text, equipment=req.equipment_label or "equipo", symptom=req.symptom,
                        urgency=req.urgency, zone=zone, business_name=p.name, extra=_equipo_datos(db, req)), p.phone_e164

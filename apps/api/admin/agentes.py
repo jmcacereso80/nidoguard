@@ -13,6 +13,7 @@ API = "https://api.retellai.com"
 MARCA = "## REGLAS DE VOZ (NidoGuard)"
 MARCA_CITA = "## REGLAS DE LA CITA (NidoGuard)"
 MARCA_EQUIPO = "## DATOS DEL EQUIPO (NidoGuard)"
+MARCA_FALLO = "## CÓMO PRESENTAR EL FALLO (NidoGuard)"
 REGLAS = f"""
 
 {MARCA}
@@ -29,12 +30,25 @@ REGLAS_EQUIPO = """
 - Si el técnico pregunta por la marca o el modelo, díselos tal cual. Si dicen "sin dato", dile que no los tienes y que los puede ver en la placa del equipo durante la visita. NUNCA inventes una marca, un modelo ni un número de serie.
 - Si pregunta algo más del equipo que no tengas (año, número de serie, si tiene garantía), dile que no lo tienes a la mano; no lo supongas.
 """
+REGLAS_FALLO = """
+
+## CÓMO PRESENTAR EL FALLO (NidoGuard)
+- El fallo lo REPORTA EL CLIENTE; tú no lo diagnosticas. Preséntalo siempre así, en este orden y con frases cortas: primero el equipo, luego "el cliente reporta que" y el fallo, y al final qué se necesita.
+  Ejemplo: "Es un refrigerador Samsung. El cliente reporta que no enfría, pero la luz interior sí enciende. Necesita que lo revisen y le digan qué tiene."
+- Usa las palabras del cliente: {{sintoma}}. Si es largo, di solo lo esencial en una o dos frases. No agregues causas ni piezas que el cliente no dijo.
+- Después de decir el fallo, haz una pausa y pregunta: "¿Me explico bien o se lo repito?". Si pide que lo repitas, dilo más lento y con otras palabras sencillas, sin cambiar los hechos.
+- Si te pregunta algo del fallo que no sabes (desde cuándo, si hizo ruido, si hay golpes de luz), dile que solo tienes lo que el cliente reportó y que lo ve el técnico en la visita. NUNCA lo inventes.
+- Si no hay {{sintoma}}, di solo el trabajo que se pide ({{trabajo}}) y no menciones ningún fallo.
+"""
 REGLAS_AGENDA = """
 
 ## REGLAS DE LA CITA (NidoGuard)
 - La visita YA está acordada: el técnico dio esa disponibilidad al cotizar y el cliente la eligió. NO preguntes si puede ir. Di algo como: "Le llamo para dejar confirmada la visita que usted ofreció, {{franja_elegida}}, por {{precio}}."
 - Pide solo la hora aproximada de llegada y el nombre de la persona que irá.
-- En cuanto lo confirme, dale la dirección completa ({{direccion}}) y el nombre de pila del cliente ({{nombre}}). Si hay {{telefono_cliente}}, también ese teléfono. Pídele que repita la dirección para asegurarte.
+- Antes de dar los datos, AVÍSALE: "Le voy a dictar la dirección y unos datos de la visita. ¿Tiene dónde anotar o lo espero?". Si dice que sí, espera en silencio hasta que diga que está listo; no empieces antes. Si dice que no tiene, espera con paciencia ("Sin prisa, aquí lo espero") y pregunta de nuevo cuando regrese.
+- Ya que esté listo, dicta DESPACIO, en partes cortas y haciendo una pausa breve entre cada una: calle y número, colonia, ciudad y referencias. Dicta ({{direccion}}), el nombre de pila del cliente ({{nombre}}) y, si hay {{telefono_cliente}}, ese teléfono dígito por dígito, en grupos de tres o cuatro. Deletrea nombres de calle poco comunes si te lo piden.
+- Al terminar pregunta: "¿Se lo repito o lo anotó completo?". Pídele que repita la dirección para asegurarte de que la tiene bien. Si algo le falta, repítelo sin molestarte.
+- Si pregunta por el fallo del equipo: es lo que el cliente reportó ({{sintoma}}); preséntalo como "el cliente reporta que…" y no lo inventes.
 - Si hay {{acceso}}, díselo tal cual (cómo se entra, qué identificación llevar). Si hay {{telefono_cliente}}, dile que puede hablar o escribir directo al cliente a ese número para coordinar el acceso o avisar al llegar. Si no hay teléfono, dile que NidoGuard le avisa al cliente.
 - Solo si dice que ya no puede, pide otra fecha y hora concretas.
 - Cierra diciendo que le avisas al cliente quién va y a qué hora.
@@ -78,8 +92,8 @@ def main():
             continue
         httpx.patch(f"{API}/update-agent/{aid}", json=AJUSTES, headers=h, timeout=20).raise_for_status()
         if llm_id:
-            base = (prompt or "").split(MARCA)[0].split(MARCA_CITA)[0].split(MARCA_EQUIPO)[0].rstrip()  # quita nuestros bloques anteriores y los vuelve a poner (asi se pueden actualizar)
-            nuevo = base + REGLAS + (REGLAS_EQUIPO if aid != s.retell_agent_id_fabricante else "") + (REGLAS_AGENDA if aid == s.retell_agent_id_agenda and aid != s.retell_agent_id else "")
+            base = (prompt or "").split(MARCA)[0].split(MARCA_CITA)[0].split(MARCA_EQUIPO)[0].split(MARCA_FALLO)[0].rstrip()  # quita nuestros bloques anteriores y los vuelve a poner (asi se pueden actualizar)
+            nuevo = base + REGLAS + (REGLAS_EQUIPO if aid != s.retell_agent_id_fabricante else "") + REGLAS_FALLO + (REGLAS_AGENDA if aid == s.retell_agent_id_agenda and aid != s.retell_agent_id else "")
             if nuevo != (prompt or ""):
                 httpx.patch(f"{API}/update-retell-llm/{llm_id}", json={"general_prompt": nuevo}, headers=h, timeout=20).raise_for_status()
         print("  aplicado.")

@@ -433,3 +433,10 @@ def test_extractor_reintenta_en_modo_automatico_si_el_modelo_no_acepta_forzar(mo
         price: int
     out = ext._run("p", Esquema, "registrar", "texto")
     assert out.price == 500 and llamadas == ["tool", "auto"]
+
+
+def test_reglas_del_agente_explican_fallo_y_dictado():
+    from admin import agentes
+    assert "el cliente reporta que" in agentes.REGLAS_FALLO and "{{sintoma}}" in agentes.REGLAS_FALLO
+    assert "dónde anotar o lo espero" in agentes.REGLAS_AGENDA
+    assert agentes.MARCA_FALLO in agentes.REGLAS_FALLO

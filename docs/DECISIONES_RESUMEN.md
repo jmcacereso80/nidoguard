@@ -59,3 +59,8 @@ Nuevo: escanea QR de la hoja → "Crea tu cuenta para activar tu kit" → kit re
 - **La persona guarda en el perfil del equipo (pestaña Documentos → "Servicio y garantía")**: nombre y teléfono del fabricante, y de la tienda donde lo compró, con la fecha hasta la que la tienda cubre la garantía (ej. Liverpool el primer año y después el fabricante). Se guarda en `extra.servicio` (sin migración). Mientras la tienda cubra la garantía, "agendar con el fabricante" no llama: la app dice que se agenda primero con la tienda y muestra su teléfono.
 - **El asistente de voz NO llama a números que la persona escribe**: se le muestran a ella para que llame. Solo se llama a líneas verificadas por NidoGuard (evita usar el asistente para llamar a un tercero).
 - Las pruebas fuerzan `line_finder=off`: nunca gastan Apify ni Claude.
+
+## Voz: fallo y dictado de la dirección
+- El agente presenta el fallo como "el cliente reporta que…" (equipo, fallo con las palabras del cliente, qué se necesita), confirma que se entendió y nunca inventa causas. Bloque "CÓMO PRESENTAR EL FALLO" en todos los agentes.
+- En la confirmación de la cita avisa "le voy a dictar la dirección… ¿tiene dónde anotar o lo espero?", espera, dicta despacio en partes y pregunta si lo anotó completo. La llamada `agendar` ahora lleva `sintoma`.
+- Aplicar con `python -m admin.agentes ajustar --aplicar`.
