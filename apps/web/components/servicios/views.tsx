@@ -391,6 +391,18 @@ export function CitaFabricante(p: P) {
   );
 }
 
+/** Dice la razón real por la que no se agendó con el fabricante, sin suponer que pidió al titular. */
+function motivoManual(reason: string | null, brand: string | null): string {
+  const marca = brand ?? "esta marca";
+  switch (reason) {
+    case "sin_linea": return `Todavía no tenemos la línea de servicio de ${marca}, así que no pudimos llamar por ti.`;
+    case "no_se_llamo": return "En esta ocasión no llamamos al fabricante por ti.";
+    case "no_contestaron": return "El fabricante no contestó la llamada.";
+    case "no_se_pudo": return "Llamamos, pero no se pudo agendar: es común que pidan que el titular hable directamente.";
+    default: return "No pudimos agendar con el fabricante.";
+  }
+}
+
 export function FabricanteManual({ r, act, busy, err }: P) {
   const m = r.manufacturer;
   const [copied, setCopied] = useState<string | null>(null);
@@ -399,7 +411,7 @@ export function FabricanteManual({ r, act, busy, err }: P) {
     ["Qué pasa", r.symptom ?? r.scope_text], ["Tu dirección", m?.address ?? null], ["Tu teléfono", m?.phone ?? null]];
   return (
     <div>
-      <div className="mt-3"><Callout>No pudimos agendar con el fabricante: puede que pida que el titular hable directamente. Te dejamos todo listo para que agendes en un minuto.</Callout></div>
+      <div className="mt-3"><Callout>{motivoManual(m?.reason ?? null, m?.brand ?? null)} Te dejamos todo listo para que agendes en un minuto.</Callout></div>
       {m?.line && (<>
         <Label>Línea de servicio de {m.brand}</Label>
         <div className="g rounded-[26px] p-4">

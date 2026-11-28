@@ -440,13 +440,26 @@ def appointment_out(db: Session, ap: ServiceAppointment) -> dict:
     return out
 
 
+def _manual_reason(db: Session, req: ServiceRequest, line) -> str | None:
+    """Por que no se pudo agendar con el fabricante, para decirle a la persona la razon real y no suponerla."""
+    if req.route != "fabricante" or req.status != "sin_cita":
+        return None
+    if line is None:
+        return "sin_linea"  # no tenemos el telefono de servicio verificado de esa marca
+    c = db.scalar(select(ServiceCall).where(ServiceCall.request_id == req.id, ServiceCall.purpose == "fabricante").order_by(ServiceCall.created_at.desc()))
+    if c is None or c.status == "omitida":
+        return "no_se_llamo"  # llamadas apagadas, numero fuera de la lista de pruebas o fuera de horario
+    return "no_contestaron" if c.status == "sin_respuesta" else "no_se_pudo"
+
+
 def _manufacturer_out(db: Session, req: ServiceRequest, prop: Property | None) -> dict:
     """Los datos propios de la persona y del equipo que se le dan al fabricante (los ve ella antes de autorizar)."""
     a = db.get(EquipmentAsset, req.asset_id) if req.asset_id else None
     u = db.get(User, req.created_by) if req.created_by else None
     w = db.scalar(select(Warranty).where(Warranty.asset_id == a.id)) if a else None
     line = verified_line(db, a.brand if a else None)
-    return {"line": {"phone": line.phone_e164, "hours": line.hours, "requires_holder": line.requires_account_holder} if line else None,
+    return {"reason": _manual_reason(db, req, line),
+            "line": {"phone": line.phone_e164, "hours": line.hours, "requires_holder": line.requires_account_holder} if line else None,
             "brand": a.brand if a else None, "model": a.model if a else None, "serial": a.serial if a else None,
             "holder_name": u.name if u else None, "phone": req.contact_phone, "address": prop.address if prop else None,
             "warranty_ends_on": w.ends_on.isoformat() if w else None}

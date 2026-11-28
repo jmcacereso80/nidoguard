@@ -352,7 +352,8 @@ def test_linea_sin_verificar_nunca_se_llama(real, db):
     r = oster(c, db, tokens)
     assert r["manufacturer"]["line"] is None
     c.post(f"/service-requests/{r['id']}/start", json={"consent": True, "phone": "55 1234 5678"})
-    assert enviados == [] and c.get(f"/service-requests/{r['id']}").json()["status"] == "sin_cita"
+    v = c.get(f"/service-requests/{r['id']}").json()
+    assert enviados == [] and v["status"] == "sin_cita" and v["manufacturer"]["reason"] == "sin_linea"  # la razón real: no tenemos la línea de esa marca
 
 
 def test_fabricante_con_linea_verificada_agenda_por_webhook(real, db):
@@ -380,6 +381,18 @@ def test_fabricante_que_rechaza_cae_en_agendala_tu(real, db):
     analizada(c, 1)
     s = c.get(f"/service-requests/{r['id']}").json()
     assert s["status"] == "sin_cita" and s["manufacturer"]["line"]["phone"]  # la persona recibe la línea para llamar
+    assert s["manufacturer"]["reason"] == "no_se_pudo"  # sí se llamó, pero no se pudo agendar (p. ej. piden al titular)
+
+
+def test_fabricante_con_linea_pero_fuera_de_la_lista_de_pruebas_dice_que_no_se_llamo(real, db, monkeypatch):
+    c, tokens, enviados = real
+    linea(db, "verificada")
+    monkeypatch.setattr(get_settings(), "calls_allowlist", "+525500000099")  # la línea del fabricante no está permitida
+    r = oster(c, db, tokens)
+    c.post(f"/service-requests/{r['id']}/start", json={"consent": True, "phone": "55 1234 5678"})
+    s = c.get(f"/service-requests/{r['id']}").json()
+    assert enviados == [] and s["status"] == "sin_cita" and s["manufacturer"]["reason"] == "no_se_llamo"
+
 
 
 def test_garantia_vigente_y_linea_verificada_manda_al_fabricante(caso, db):
