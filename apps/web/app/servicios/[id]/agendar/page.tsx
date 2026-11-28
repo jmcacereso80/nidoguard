@@ -56,6 +56,7 @@ function Form({ id }: { id: string }) {
         <ErrorNote text={m.isError ? (m.error as Error).message : null} />
         <Actions><button type="button" className="btn" disabled={m.isPending || !ok} onClick={pedir}><Icon name="check" size={19} stroke={2.4} />Pedir esta visita</button>
           <TextLink href={`/servicios/${id}/cotizacion/${qid}`}>Ahora no</TextLink></Actions>
+        <p className="mx-1.5 mt-2 text-center text-[12.5px] leading-snug text-muted">Puedes cancelar en cualquier momento, también después de pedir la visita.</p>
       </>)}
       {q.isLoading && <p className="text-muted">Cargando…</p>}
     </Shell>

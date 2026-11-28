@@ -192,6 +192,10 @@ def cancel_appointment(appointment_id: uuid.UUID, org: Organization = Depends(cu
     if ap.status in ("cancelada", "realizada"):
         raise HTTPException(409, "Esta cita ya no se puede cancelar.")
     ap.status = "cancelada"
+    from ..models import ServiceCall
+    for c in db.scalars(select(ServiceCall).where(ServiceCall.request_id == ap.request_id, ServiceCall.status == "en_cola",
+                                                   ServiceCall.purpose.in_(("agendar", "recordatorio")))):
+        c.status = "cancelada"  # que no salga una llamada de confirmacion de una visita que ya se cancelo
     r = db.get(ServiceRequest, ap.request_id)
     r.status = "lista" if ap.provider_kind == "tecnico" else "sin_cita"
     r.chosen_quote_id = None

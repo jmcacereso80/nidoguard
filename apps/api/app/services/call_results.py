@@ -92,8 +92,8 @@ def _ctx(db: Session, req: ServiceRequest, call: ServiceCall) -> tuple[CallConte
 
 
 def resumes_at(db: Session, req: ServiceRequest, voice_name: str) -> datetime | None:
-    """Si la busqueda esta esperando a que abra el horario de llamadas, cuando sigue."""
-    if voice_name != "retell" or req.status != "buscando":
+    """Si hay llamadas esperando a que abra el horario (busqueda o confirmacion de la visita), cuando siguen."""
+    if voice_name != "retell" or req.status not in ("buscando", "agendada"):
         return None
     now = _now()
     if call_policy.in_window(now):

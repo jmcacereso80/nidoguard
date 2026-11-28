@@ -173,6 +173,39 @@ def test_la_direccion_solo_sale_en_la_llamada_de_agendar(real, db):
     assert s["appointment"]["technician_phone"] is None  # el telefono del tecnico solo se ve con la visita confirmada
 
 
+def test_confirmacion_fuera_de_horario_espera_se_marca_al_abrir_y_se_puede_cancelar(real, db, monkeypatch):
+    c, tokens, enviados = real
+    r = buscar(c, db, tokens)
+    analizada(c, 1)
+    r = c.get(f"/service-requests/{r['id']}").json()
+    c.put("/me/phone", json={"phone": "55 1234 5678"})
+    n = len(enviados)
+    monkeypatch.setattr(call_policy, "in_window", lambda now: False)  # son las 9 de la noche
+    s = c.post(f"/service-requests/{r['id']}/schedule", json={"quote_id": r["quotes"][0]["id"], "slot_index": 0, "consent": True}).json()
+    assert len(enviados) == n and s["resumes_at"]  # no se marca fuera de horario y la app dice cuándo sigue
+    ap = db.scalar(select(ServiceAppointment).where(ServiceAppointment.id == uuid.UUID(s["appointment"]["id"])))
+    tel = db.get(ServiceProvider, ap.provider_id).phone_e164
+    monkeypatch.setattr(call_policy, "in_window", lambda now: True)  # abre el horario
+    c.get(f"/service-requests/{r['id']}")
+    assert len(enviados) == n + 1 and enviados[-1]["retell_llm_dynamic_variables"]["tipo"] == "agendar"
+    assert enviados[-1]["to_number"] == tel  # se llama al teléfono del técnico (en la prueba, el de la persona)
+
+
+def test_cancelar_la_visita_cancela_la_llamada_de_confirmacion_en_cola(real, db, monkeypatch):
+    c, tokens, enviados = real
+    r = buscar(c, db, tokens)
+    analizada(c, 1)
+    r = c.get(f"/service-requests/{r['id']}").json()
+    monkeypatch.setattr(call_policy, "in_window", lambda now: False)
+    s = c.post(f"/service-requests/{r['id']}/schedule", json={"quote_id": r["quotes"][0]["id"], "slot_index": 0, "consent": True}).json()
+    n = len(enviados)
+    assert c.post(f"/appointments/{s['appointment']['id']}/cancel").status_code == 200
+    monkeypatch.setattr(call_policy, "in_window", lambda now: True)
+    out = c.get(f"/service-requests/{r['id']}").json()
+    assert len(enviados) == n and out["status"] == "lista"  # ya no sale la llamada y puede elegir otra cotización
+    assert c.post(f"/service-requests/{r['id']}/cancel").status_code == 200  # y también puede cancelar todo, con cotizaciones listas
+
+
 def test_confirma_revela_nombre_y_marca_recordatorio_el_dia_anterior(real, db):
     c, tokens, enviados = real
     d = dia(3)

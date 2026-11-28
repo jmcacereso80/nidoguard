@@ -228,7 +228,7 @@ export function QuoteCard({ q, rid }: { q: Quote; rid: string }) {
   );
 }
 
-export function Comparar({ r }: { r: ServiceRequest }) {
+export function Comparar({ r, act }: { r: ServiceRequest; act?: Act }) {
   const [sort, setSort] = useState<Sort>("precio");
   const quotes = sortQuotes(r.quotes ?? [], sort);
   return (
@@ -242,6 +242,8 @@ export function Comparar({ r }: { r: ServiceRequest }) {
       <Note>Son cotizaciones dadas por teléfono. El precio puede cambiar cuando el técnico revise tu equipo.</Note>
       <div className="mt-3 flex flex-col gap-2.5">{quotes.map((q) => <QuoteCard key={q.id} q={q} rid={r.id} />)}</div>
       <div className="mt-4"><NoCobro /></div>
+      <p className="mx-1.5 mt-3 text-center text-[12.5px] leading-snug text-muted">No pasa nada si no eliges ninguna: puedes cancelar cuando quieras.</p>
+      {act && <Actions><TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar solicitud</TextLink></Actions>}
     </div>
   );
 }
@@ -331,6 +333,9 @@ export function Visita(p: P) {
           {ap.access_notes && <p className="mt-3 border-t border-navy/10 pt-3 text-[13.5px] leading-relaxed"><b>Acceso que le dimos:</b> {ap.access_notes}</p>}
         </div>
       )}
+      {!confirmada && ap.status === "por_confirmar" && r.resumes_at && (
+        <div className="mt-4"><Callout icon="clock">Ahora no es horario de llamadas. Llamamos al técnico a confirmar el <b>{new Date(r.resumes_at).toLocaleString("es-MX", { weekday: "long", hour: "numeric", minute: "2-digit" })}</b>.</Callout></div>
+      )}
       {ap.status === "por_reprogramar" && ap.proposed_slot && (
         <div className="mt-4">
           <Callout icon="clock"><b>El técnico propone otro horario:</b> {longDay(`${ap.proposed_slot.date}T12:00:00-06:00`)}{ap.proposed_slot.start_hour != null ? `, desde las ${ap.proposed_slot.start_hour}:00` : ""}.</Callout>
@@ -351,8 +356,10 @@ export function Visita(p: P) {
         {confirmada && <a className="btn" download="visita-nidoguard.ics" href={icsLink(CALENDAR_TITLE(r), ap.starts_at!, ap.ends_at)}><Icon name="calendar" size={19} stroke={2.2} />Agregar al calendario</a>}
         <DoneBox {...p} />
         <Link href="/servicios" className="btn btn-ghost"><Icon name="list" size={19} />Ver mis solicitudes</Link>
-        <TextLink onClick={() => act(`/appointments/${ap.id}/cancel`)} danger>Cambiar o cancelar la visita</TextLink>
+        <TextLink onClick={() => act(`/appointments/${ap.id}/cancel`)}>Elegir otra cotización u horario</TextLink>
+        <TextLink onClick={() => act("/service-requests/{id}/cancel")} danger>Cancelar la visita</TextLink>
       </Actions>
+      <p className="mx-1.5 mt-2 text-center text-[12.5px] leading-snug text-muted">Puedes cancelar en cualquier momento. {confirmada ? (ap.technician_phone ? "Como ya estaba confirmada, avísale también al técnico por teléfono." : "Como ya estaba confirmada, avísale al técnico si tienes su contacto.") : "Si el técnico aún no confirma, ya no lo llamamos."}</p>
     </div>
   );
 }

@@ -30,8 +30,8 @@ export default function Solicitud({ params }: { params: Promise<{ id: string }> 
   const { title, sub } = meta(r, ver);
   let view: React.ReactNode;
   if (r.status === "borrador") view = r.safety && !r.safety.acknowledged ? <Alerta {...p} /> : r.route === "fabricante" ? <FabricanteDatos {...p} /> : <Confirmar {...p} />;
-  else if (r.status === "buscando") view = r.route === "fabricante" ? <FabricanteLlamando {...p} /> : ver && r.quote_count > 0 ? <Comparar r={r} /> : <Progreso {...p} onSee={() => setVer(true)} />;
-  else if (r.status === "lista") view = <Comparar r={r} />;
+  else if (r.status === "buscando") view = r.route === "fabricante" ? <FabricanteLlamando {...p} /> : ver && r.quote_count > 0 ? <Comparar r={r} act={act} /> : <Progreso {...p} onSee={() => setVer(true)} />;
+  else if (r.status === "lista") view = <Comparar r={r} act={act} />;
   else if (r.status === "sin_respuesta") view = <SinRespuesta {...p} />;
   else if (r.status === "sin_cita") view = <FabricanteManual {...p} />;
   else if (r.status === "agendada" && r.appointment) view = r.appointment.kind === "fabricante" ? <CitaFabricante {...p} /> : <Visita {...p} />;
