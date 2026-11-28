@@ -440,3 +440,11 @@ def test_reglas_del_agente_explican_fallo_y_dictado():
     assert "el cliente reporta que" in agentes.REGLAS_FALLO and "{{sintoma}}" in agentes.REGLAS_FALLO
     assert "dónde anotar o lo espero" in agentes.REGLAS_AGENDA
     assert agentes.MARCA_FALLO in agentes.REGLAS_FALLO
+
+
+def test_bloque_de_tipo_impide_cotizar_en_la_confirmacion():
+    from admin import agentes
+    t = agentes.TIPO
+    assert t.startswith(agentes.MARCA_TIPO) and agentes.FIN_TIPO in t and "{{tipo}}" in t
+    assert "NUNCA pidas precio" in t and "{{precio}}" in t
+    assert "SOLO cuando {{tipo}} es agendar" in agentes.REGLAS_AGENDA

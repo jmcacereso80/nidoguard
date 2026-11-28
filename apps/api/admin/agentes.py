@@ -14,6 +14,16 @@ MARCA = "## REGLAS DE VOZ (NidoGuard)"
 MARCA_CITA = "## REGLAS DE LA CITA (NidoGuard)"
 MARCA_EQUIPO = "## DATOS DEL EQUIPO (NidoGuard)"
 MARCA_FALLO = "## CÓMO PRESENTAR EL FALLO (NidoGuard)"
+MARCA_TIPO = "## TIPO DE LLAMADA (NidoGuard)"
+FIN_TIPO = "## FIN TIPO DE LLAMADA"
+TIPO = f"""{MARCA_TIPO}
+Esta llamada es de tipo: {{{{tipo}}}}. Lo que dice este bloque manda sobre el resto del guion.
+- cotizar: sigue el guion de cotización de abajo.
+- agendar, recordatorio o cancelar: NO es una cotización. NUNCA pidas precio, ni preguntes qué incluye, ni vuelvas a cotizar: el precio ({{{{precio}}}}) y la franja ({{{{franja_elegida}}}}) ya están acordados. Sigue solo las "REGLAS DE LA CITA" de más abajo y empieza diciendo para qué llamas (confirmar la visita, recordarla o avisar de la cancelación).
+- fabricante: sigue solo lo que diga el guion del centro de atención.
+{FIN_TIPO}
+
+"""
 REGLAS = f"""
 
 {MARCA}
@@ -43,6 +53,7 @@ REGLAS_FALLO = """
 REGLAS_AGENDA = """
 
 ## REGLAS DE LA CITA (NidoGuard)
+Aplican SOLO cuando {{tipo}} es agendar, recordatorio o cancelar. Si es cotizar, ignora todo este bloque.
 - La visita YA está acordada: el técnico dio esa disponibilidad al cotizar y el cliente la eligió. NO preguntes si puede ir. Di algo como: "Le llamo para dejar confirmada la visita que usted ofreció, {{franja_elegida}}, por {{precio}}."
 - Pide solo la hora aproximada de llegada y el nombre de la persona que irá.
 - ORDEN OBLIGATORIO para la cita, paso por paso, sin saltarte ninguno:
@@ -80,6 +91,9 @@ def main():
     if not ids:
         raise SystemExit("No hay ningún RETELL_AGENT_ID en el .env.")
     h = {"Authorization": f"Bearer {s.retell_api_key}"}
+    if not s.retell_agent_id_agenda or s.retell_agent_id_agenda == s.retell_agent_id:
+        print("AVISO: RETELL_AGENT_ID_AGENDA está vacío o es el mismo que el cotizador. Las llamadas de confirmación, recordatorio y cancelación "
+              "usan el agente cotizador (su saludo y su guion piden cotizar). Duplica el agente en Retell, ponle un saludo de cita y pon su id en RETELL_AGENT_ID_AGENDA.\n")
     for aid in sorted(ids):
         ag = httpx.get(f"{API}/get-agent/{aid}", headers=h, timeout=20); ag.raise_for_status(); ag = ag.json()
         eng = ag.get("response_engine") or {}
@@ -89,16 +103,19 @@ def main():
         prompt = None
         if llm_id:
             l = httpx.get(f"{API}/get-retell-llm/{llm_id}", headers=h, timeout=20); l.raise_for_status(); prompt = l.json().get("general_prompt") or ""
-            print(f"  prompt: se pondrán las reglas de voz (pesos y paciencia){' y las de la cita' if aid == s.retell_agent_id_agenda and aid != s.retell_agent_id else ''}")
+            print(f"  prompt: se pondrán las reglas de voz (pesos y paciencia){' y las de la cita' if aid != s.retell_agent_id_fabricante else ''}")
         else:
             print("  Este agente no usa Retell LLM: agrega las reglas de voz a mano (están en admin/agentes.py).")
         if not a.aplicar:
             continue
         httpx.patch(f"{API}/update-agent/{aid}", json=AJUSTES, headers=h, timeout=20).raise_for_status()
         if llm_id:
+            prompt = orig = prompt or ""
+            if prompt.startswith(MARCA_TIPO) and FIN_TIPO in prompt:
+                prompt = prompt.split(FIN_TIPO, 1)[1].lstrip()  # quita el bloque de tipo anterior (va siempre al inicio)
             base = (prompt or "").split(MARCA)[0].split(MARCA_CITA)[0].split(MARCA_EQUIPO)[0].split(MARCA_FALLO)[0].rstrip()  # quita nuestros bloques anteriores y los vuelve a poner (asi se pueden actualizar)
-            nuevo = base + REGLAS + (REGLAS_EQUIPO if aid != s.retell_agent_id_fabricante else "") + REGLAS_FALLO + (REGLAS_AGENDA if aid == s.retell_agent_id_agenda and aid != s.retell_agent_id else "")
-            if nuevo != (prompt or ""):
+            nuevo = (TIPO if aid != s.retell_agent_id_fabricante else "") + base + REGLAS + (REGLAS_EQUIPO if aid != s.retell_agent_id_fabricante else "") + REGLAS_FALLO + (REGLAS_AGENDA if aid != s.retell_agent_id_fabricante else "")
+            if nuevo != orig:
                 httpx.patch(f"{API}/update-retell-llm/{llm_id}", json={"general_prompt": nuevo}, headers=h, timeout=20).raise_for_status()
         print("  aplicado.")
     if not a.aplicar:

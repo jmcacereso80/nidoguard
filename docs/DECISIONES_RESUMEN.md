@@ -73,3 +73,8 @@ Nuevo: escanea QR de la hoja → "Crea tu cuenta para activar tu kit" → kit re
 ## Ajustes de agosto-noviembre 2026 (cotizar)
 - Línea de fabricante: el dominio es oficial solo si su nombre registrable es la marca (samsung.com, mabe.com.mx). Un sitio que solo contiene la marca (centrodeservicio.mx, pissedconsumer.com) o un directorio no cuenta. Las líneas encontradas quedan por verificar.
 - Agente: la cita sigue un orden fijo (confirmar, pedir hora y nombre, preguntar si puede anotar y esperar, luego la dirección). El fallo siempre se presenta como "el cliente reporta que…".
+
+## Confirmación que volvía a cotizar
+- Causa probable: si `RETELL_AGENT_ID_AGENDA` está vacío o igual al cotizador, `retell.dial` usa el agente cotizador también para agendar/recordatorio/cancelar, y las reglas de la cita no se aplicaban a ese agente.
+- `admin.agentes ajustar` ahora pone al inicio de TODOS los agentes (menos fabricante) un bloque "TIPO DE LLAMADA" (si `{{tipo}}` es agendar/recordatorio/cancelar: nunca cotizar) y aplica las reglas de la cita condicionadas a `{{tipo}}`; avisa si falta el agente de agenda.
+- Pendiente de fondo: duplicar el agente en Retell como "NidoGuard Agenda" con saludo de cita y poner su id en `RETELL_AGENT_ID_AGENDA` (el saludo del cotizador pide cotizar y no se cambia por prompt).
