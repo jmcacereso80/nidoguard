@@ -54,13 +54,18 @@ SKIP = ("mercadolibre.", "amazon.", "ebay.", "walmart.", "aliexpress.", "liverpo
 
 
 def official_domain(url: str, brand: str) -> bool:
-    """Un dominio es oficial si alguna parte del nombre es la marca (samsung.com, mabe.com.mx, lg.com/mx); no sirve si es tienda o directorio."""
+    """Oficial = el nombre registrable del dominio ES la marca (samsung.com, mabe.com.mx, lg.com/mx).
+    No basta con que la marca aparezca dentro del nombre: samsung.centrodeservicio.mx o kalorik.pissedconsumer.com no son de la marca."""
     host = urlparse(url).netloc.lower().removeprefix("www.")
     key = brand_key(brand)
     if not host or not key or any(s in host + "." for s in SKIP):
         return False
-    labels = [x for x in re.split(r"[.\-]", host) if x]
-    return any(x == key or (len(key) >= 4 and x.startswith(key)) for x in labels)
+    partes = [x for x in host.split(".") if x]
+    if len(partes) < 2:
+        return False
+    # sufijos de dos niveles como .com.mx o .co.uk: el nombre va antes de ellos
+    sld = partes[-3] if len(partes) >= 3 and partes[-2] in ("com", "net", "org", "gob", "co", "gob") else partes[-2]
+    return sld == key
 
 
 def phones_in(text: str) -> list[tuple[str, bool]]:

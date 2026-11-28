@@ -68,3 +68,8 @@ Nuevo: escanea QR de la hoja → "Crea tu cuenta para activar tu kit" → kit re
 ## Calendario de Apple en iPhone
 - El enlace de datos (`data:text/calendar`) no abre en Safari del iPhone. Ahora el botón Apple pide `POST /calendar/link` (con sesión) y abre `GET /calendar/<token>.ics` (sin sesión, firmado con HMAC, caduca a los 30 min, no guarda nada) con `Content-Type: text/calendar` y `inline`; así iOS muestra "Agregar a Calendario". Secreto: `CALENDAR_SECRET` (si falta, usa `CLERK_SECRET_KEY`).
 - Nota: el evento (con la dirección) viaja dentro del enlace firmado y puede verse en los registros del servidor; si molesta, se quita la dirección del evento.
+
+
+## Ajustes de agosto-noviembre 2026 (cotizar)
+- Línea de fabricante: el dominio es oficial solo si su nombre registrable es la marca (samsung.com, mabe.com.mx). Un sitio que solo contiene la marca (centrodeservicio.mx, pissedconsumer.com) o un directorio no cuenta. Las líneas encontradas quedan por verificar.
+- Agente: la cita sigue un orden fijo (confirmar, pedir hora y nombre, preguntar si puede anotar y esperar, luego la dirección). El fallo siempre se presenta como "el cliente reporta que…".

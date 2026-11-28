@@ -157,3 +157,13 @@ def test_la_persona_guarda_el_fabricante_y_la_tienda_en_el_equipo(real, db, find
     assert v["manufacturer"]["contacts"]["store"]["name"] == "Liverpool"
     # borrar todo
     assert c.put(f"/assets/{a['id']}/service-contacts", json={}).json()["service_contacts"] == {"maker": None, "store": None}
+
+
+def test_dominio_oficial_exige_que_el_nombre_sea_la_marca():
+    """Antes 'samsung.centrodeservicio.mx' y 'kalorik.pissedconsumer.com' pasaban por contener la marca."""
+    assert not official_domain("https://samsung.centrodeservicio.mx/", "Samsung")
+    assert not official_domain("https://kalorik.pissedconsumer.com/customer-service.html", "Kalorik")
+    assert official_domain("https://www.nespresso.com/pro/mx/es/confirm-email-change", "Nespresso")  # el dominio es la marca; la pagina se descarta por otro motivo
+    assert official_domain("https://www.samsung.com/mx/soporte", "Samsung")
+    assert official_domain("https://atencion.samsung.com/mx", "Samsung")
+    assert official_domain("https://mabe.com.mx/servicio", "Mabe")
