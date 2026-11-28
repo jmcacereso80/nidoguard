@@ -4,6 +4,7 @@ import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shell, Card, ErrorNote } from "@/components/Shell";
+import { ContactosServicio } from "@/components/equipo/ContactosServicio";
 import { Documentos } from "@/components/equipo/Documentos";
 import { Cuidado } from "@/components/equipo/Cuidado";
 import { Icon, equipmentIcon } from "@/components/Icon";
@@ -227,7 +228,7 @@ export default function Equipo({ params }: { params: Promise<{ id: string }> }) 
           <ErrorNote text={err} />
         </div>
       )}
-      {tab === "Documentos" && <Documentos id={id} />}
+      {tab === "Documentos" && <><Documentos id={id} /><ContactosServicio key={JSON.stringify(a.service_contacts ?? null)} id={id} contacts={a.service_contacts} /></>}
       {tab === "Cuidado" && <Cuidado id={id} ready={!STILL_READING.includes(a.status)} />}
       {tab === "Historial" && (
         <ol className="flex flex-col gap-3">

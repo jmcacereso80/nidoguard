@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import type { ServiceContacts } from "@/lib/api";
 import { AgregarCalendario } from "@/components/servicios/AgregarCalendario";
 import { ConfirmLink } from "@/components/servicios/ConfirmLink";
 import { Stars } from "@/components/servicios/Stars";
@@ -392,9 +393,11 @@ export function CitaFabricante(p: P) {
 }
 
 /** Dice la razón real por la que no se agendó con el fabricante, sin suponer que pidió al titular. */
-function motivoManual(reason: string | null, brand: string | null): string {
+function motivoManual(reason: string | null, brand: string | null, c: ServiceContacts | null): string {
   const marca = brand ?? "esta marca";
+  const tienda = c?.store?.name ?? "la tienda";
   switch (reason) {
+    case "garantia_tienda": return `Tu garantía todavía es con ${tienda}${c?.store?.until ? ` (hasta el ${longDay(`${c.store.until}T12:00:00-06:00`)})` : ""}, así que ahí toca agendar primero.`;
     case "sin_linea": return `Todavía no tenemos la línea de servicio de ${marca}, así que no pudimos llamar por ti.`;
     case "linea_por_verificar": return `Encontramos la línea de servicio de ${marca}, pero todavía no llamamos por ti a números que una persona no ha verificado.`;
     case "no_se_llamo": return "En esta ocasión no llamamos al fabricante por ti.";
@@ -412,7 +415,15 @@ export function FabricanteManual({ r, act, busy, err }: P) {
     ["Qué pasa", r.symptom ?? r.scope_text], ["Tu dirección", m?.address ?? null], ["Tu teléfono", m?.phone ?? null]];
   return (
     <div>
-      <div className="mt-3"><Callout>{motivoManual(m?.reason ?? null, m?.brand ?? null)} Te dejamos todo listo para que agendes en un minuto.</Callout></div>
+      <div className="mt-3"><Callout>{motivoManual(m?.reason ?? null, m?.brand ?? null, m?.contacts ?? null)} Te dejamos todo listo para que agendes en un minuto.</Callout></div>
+      {m?.contacts?.store?.phone && (
+        <><Label>{m.contacts.store.active ? `Tu garantía es con ${m.contacts.store.name ?? "la tienda"}` : `Tienda: ${m.contacts.store.name ?? ""}`}</Label>
+        <div className="g rounded-[26px] p-4"><a href={`tel:${m.contacts.store.phone}`} className="text-[18px] font-extrabold text-navy underline">{m.contacts.store.phone.replace(/^\+52/, "")}</a>
+          {m.contacts.store.active && m.contacts.store.until && <p className="mt-1 text-[13px] text-muted">La tienda cubre la garantía hasta el {longDay(`${m.contacts.store.until}T12:00:00-06:00`)}.</p>}</div></>)}
+      {m?.contacts?.maker?.phone && !m.line && (
+        <><Label>{m.contacts.maker.name ? `Tu teléfono guardado de ${m.contacts.maker.name}` : "Tu teléfono guardado del fabricante"}</Label>
+        <div className="g rounded-[26px] p-4"><a href={`tel:${m.contacts.maker.phone}`} className="text-[18px] font-extrabold text-navy underline">{m.contacts.maker.phone.replace(/^\+52/, "")}</a>
+          <p className="mt-1 text-[12.5px] text-muted">Lo guardaste en el perfil del equipo. Llama tú: nuestro asistente solo llama a líneas que verificamos.</p></div></>)}
       {(m?.line || m?.candidate) && (() => { const l = (m.line ?? m.candidate)!; return (<>
         <Label>Línea de servicio de {m.brand}</Label>
         <div className="g rounded-[26px] p-4">
@@ -434,7 +445,7 @@ export function FabricanteManual({ r, act, busy, err }: P) {
               onClick={() => { navigator.clipboard?.writeText(v!); setCopied(k); }}><Icon name={copied === k ? "check" : "copy"} size={18} /></button></div></div>
         ))}
       </div>
-      {!m?.line && !m?.candidate && <Note icon="search">Busca la línea de servicio en la garantía, el manual o la página del fabricante.</Note>}
+      {!m?.line && !m?.candidate && !m?.contacts?.maker?.phone && !m?.contacts?.store?.phone && <Note icon="search">Busca la línea de servicio en la garantía, el manual o la página del fabricante.</Note>}
       <Label>Cuando tengas tu cita, dinos para cuándo quedó</Label>
       <div className="g flex flex-col gap-2.5 rounded-[26px] p-3.5">
         <label className="sr-only" htmlFor="fecha">Fecha de la cita</label><input id="fecha" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="field" />

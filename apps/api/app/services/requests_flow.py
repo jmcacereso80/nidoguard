@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..models import (Space, User, AssetEvent, CareTask, Consent, EquipmentAsset, Property, ServiceAppointment, ServiceCall, ServiceProvider,
                       ServiceQuote, ServiceRequest, Warranty)
-from . import call_results, safety
+from . import call_results, safety, service_contacts
 from .manufacturers import candidate_line, verified_line
 from .providers import SPECIALTIES, candidates, ensure_directory, get_source, specialty_for, to_e164_mx
 from .scope import ScopeWriter
@@ -189,6 +189,10 @@ def _start_manufacturer(db: Session, req: ServiceRequest, user, org, voice: Voic
     a = db.get(EquipmentAsset, req.asset_id)
     _consent(db, user, org, req, "compartir_datos_con_fabricante")
     req.contact_phone = e164
+    if service_contacts.store_covers(a, today_mx()):  # la tienda cubre la garantia: no se llama al fabricante, la persona agenda con la tienda
+        req.status, req.started_at = "sin_cita", utcnow()
+        db.commit()
+        return req
     req.status, req.started_at = "buscando", utcnow()
     call = ServiceCall(request_id=req.id, purpose="fabricante", label="Fabricante")
     db.add(call)
@@ -445,6 +449,8 @@ def _manual_reason(db: Session, req: ServiceRequest, line) -> str | None:
     """Por que no se pudo agendar con el fabricante, para decirle a la persona la razon real y no suponerla."""
     if req.route != "fabricante" or req.status != "sin_cita":
         return None
+    if service_contacts.store_covers(db.get(EquipmentAsset, req.asset_id) if req.asset_id else None, today_mx()):
+        return "garantia_tienda"  # la garantia todavia es con la tienda: ahi se agenda primero
     if line is None:
         a = db.get(EquipmentAsset, req.asset_id) if req.asset_id else None
         return "linea_por_verificar" if candidate_line(db, a.brand if a else None) else "sin_linea"  # la encontramos pero aun no esta verificada / no la tenemos
@@ -461,7 +467,7 @@ def _manufacturer_out(db: Session, req: ServiceRequest, prop: Property | None) -
     w = db.scalar(select(Warranty).where(Warranty.asset_id == a.id)) if a else None
     line = verified_line(db, a.brand if a else None)
     cand = None if line else candidate_line(db, a.brand if a else None)
-    return {"reason": _manual_reason(db, req, line), "feedback": req.line_feedback,
+    return {"reason": _manual_reason(db, req, line), "feedback": req.line_feedback, "contacts": service_contacts.contacts_out(a, today_mx()),
             "candidate": {"phone": cand.phone_e164, "hours": cand.hours, "requires_holder": cand.requires_account_holder,
                           "source_domain": urlparse(cand.source or "").netloc.removeprefix("www.") or None} if cand else None,
             "line": {"phone": line.phone_e164, "hours": line.hours, "requires_holder": line.requires_account_holder} if line else None,

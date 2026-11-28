@@ -26,6 +26,13 @@ def schema():
     yield
 
 
+@pytest.fixture(autouse=True)
+def sin_busquedas_reales(monkeypatch):
+    """Las pruebas nunca gastan Apify ni Claude buscando lineas de servicio, aunque el .env de quien las corre tenga las llaves."""
+    from app.config import get_settings
+    monkeypatch.setattr(get_settings(), "line_finder", "off")
+
+
 @pytest.fixture()
 def db():
     s = Session()

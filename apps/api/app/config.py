@@ -27,7 +27,8 @@ class Settings(BaseSettings):
     app_url: str = "https://app.nidoguard.com"
     cors_origins: str = "http://localhost:3000"
 
-    line_finder: str = "claude"  # claude | off: busca por internet la linea de servicio de cada marca (queda por verificar)
+    line_finder: str = "auto"  # auto (Apify y, si no sale, Claude) | apify | claude | off: busca por internet la linea de servicio de cada marca (queda por verificar)
+    apify_search_actor: str = "apify~google-search-scraper"
     line_finder_model: str = "claude-sonnet-5-5"
     care_model: str = "claude-haiku-5-5"  # genera los cuidados de cada equipo
     plate_model: str = "claude-haiku-5-5"

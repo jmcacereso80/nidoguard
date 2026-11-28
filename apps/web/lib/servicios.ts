@@ -1,3 +1,4 @@
+import type { ServiceContacts } from "./api";
 // Tipos y reglas de Servicios: cotizar y agendar con un técnico o con el fabricante.
 // Los datos vienen de la API (/service-requests). Nunca hay datos de contacto del técnico: solo "Técnico N".
 export type Urgency = "hoy" | "semana" | "sin_prisa";
@@ -28,7 +29,7 @@ export type ServiceRequest = {
   safety: Safety | null; warranty: { ends_on: string; days_left: number; provider: string | null } | null;
   resumes_at: string | null; zone: string | null; property_id: string | null; address_name: string | null; address_text: string | null; address_complete: boolean; radius_km: number; target_quotes: number; created_at: string; quote_count: number;
   appointment: Appointment | null; quotes?: Quote[]; calls?: CallRow[];
-  manufacturer: { reason: "sin_linea" | "linea_por_verificar" | "no_se_llamo" | "no_contestaron" | "no_se_pudo" | null; feedback: boolean | null; candidate: { phone: string; hours: string | null; requires_holder: boolean; source_domain: string | null } | null; line: { phone: string; hours: string | null; requires_holder: boolean } | null; brand: string | null; model: string | null; serial: string | null; holder_name: string | null; phone: string | null; address: string | null; warranty_ends_on: string | null } | null;
+  manufacturer: { reason: "sin_linea" | "linea_por_verificar" | "garantia_tienda" | "no_se_llamo" | "no_contestaron" | "no_se_pudo" | null; contacts: ServiceContacts | null; feedback: boolean | null; candidate: { phone: string; hours: string | null; requires_holder: boolean; source_domain: string | null } | null; line: { phone: string; hours: string | null; requires_holder: boolean } | null; brand: string | null; model: string | null; serial: string | null; holder_name: string | null; phone: string | null; address: string | null; warranty_ends_on: string | null } | null;
 };
 export type Address = { street: string | null; colony: string | null; postal_code: string | null; city: string | null; state: string | null; search_radius_km: number; complete: boolean };
 

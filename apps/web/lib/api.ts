@@ -33,5 +33,6 @@ export type HomeProperty = { id: string; name: string; address?: HomeAddress; as
 export type Home = { id: string; name: string; properties: HomeProperty[] };
 export type Me = { user: { id: string; email: string | null; name: string | null; first_name: string | null; last_name: string | null; phone: string | null }; home: Home | null; suggested_spaces: string[] };
 export type Space = { id: string; name: string; icon: string | null; property_id: string };
-export type Asset = { id: string; name: string; status: string; brand: string | null; model: string | null; serial: string | null; category: string | null; space_id: string | null };
+export type ServiceContacts = { maker: { name: string | null; phone: string | null } | null; store: { name: string | null; phone: string | null; until: string | null; active: boolean } | null };
+export type Asset = { id: string; name: string; status: string; brand: string | null; model: string | null; serial: string | null; category: string | null; space_id: string | null; service_contacts?: ServiceContacts };
 export type Kit = { id: string; status: string; tags_total: number; tags_used: number };

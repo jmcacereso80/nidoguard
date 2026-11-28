@@ -1,6 +1,6 @@
 import uuid
 from typing import Literal
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -11,7 +11,8 @@ from ..models import (
     ReadingStatus, SmartTag, Space, Property, TagStatus, User,
 )
 from ..security import current_org, current_user
-from ..services import care as care_service, manuales, readings
+from ..services import care as care_service, manuales, readings, service_contacts
+from ..services.providers import to_e164_mx
 from ..services.storage import ALLOWED_TYPES, MAX_BYTES, Storage, get_storage
 
 router = APIRouter(prefix="/assets", tags=["equipos"])
@@ -62,6 +63,7 @@ def _out(a: EquipmentAsset):
     return {"id": str(a.id), "name": a.name, "status": a.status.value, "category": a.category,
             "brand": a.brand, "model": a.model, "serial": a.serial, "extra": a.extra,
             "space_id": str(a.space_id) if a.space_id else None,
+            "service_contacts": service_contacts.contacts_out(a, datetime.now(timezone.utc).date()),
             "created_at": a.created_at.isoformat()}
 
 
@@ -255,6 +257,32 @@ def edit_asset(asset_id: uuid.UUID, body: AssetEditIn, tasks: BackgroundTasks, u
     if {"brand", "model"} & set(changes):
         manuales.pedir_manual(db, a, tasks)
     tasks.add_task(care_service.prepare_in_background, a.id)
+    return _out(a)
+
+
+class ServiceContactsIn(BaseModel):
+    maker_name: str | None = Field(default=None, max_length=80)
+    maker_phone: str | None = Field(default=None, max_length=30)
+    store_name: str | None = Field(default=None, max_length=80)
+    store_phone: str | None = Field(default=None, max_length=30)
+    store_until: date | None = None  # hasta cuando la tienda cubre la garantia (despues es con el fabricante)
+
+
+@router.put("/{asset_id}/service-contacts")
+def put_service_contacts(asset_id: uuid.UUID, body: ServiceContactsIn, user: User = Depends(current_user),
+                         org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+    """El fabricante y la tienda donde se compró: nombre y teléfono. Se reemplaza todo lo anterior (lo vacío se borra)."""
+    a = _own(db, org, asset_id)
+    phones = {}
+    for k in ("maker_phone", "store_phone"):
+        raw = (getattr(body, k) or "").strip()
+        phones[k] = to_e164_mx(raw) if raw else None
+        if raw and not phones[k]:
+            raise HTTPException(422, "Escribe el teléfono a 10 dígitos, con lada.")
+    clean = lambda t: (t or "").strip() or None
+    service_contacts.save(a, clean(body.maker_name), phones["maker_phone"], clean(body.store_name), phones["store_phone"], body.store_until)
+    _event(db, a, "edicion", user, fields=["service_contacts"])
+    db.commit()
     return _out(a)
 
 
