@@ -59,6 +59,13 @@ class RegisterIn(BaseModel):
 
 class DoneIn(BaseModel):
     final_cost: float | None = Field(default=None, ge=0, le=1_000_000)
+    rating: int | None = Field(default=None, ge=1, le=5)
+    rating_comment: str | None = Field(default=None, max_length=300)
+
+
+class RateIn(BaseModel):
+    stars: int = Field(ge=1, le=5)
+    comment: str | None = Field(default=None, max_length=300)
 
 
 def _req(db: Session, org: Organization, request_id: uuid.UUID, advance: bool = True) -> ServiceRequest:
@@ -235,8 +242,19 @@ def done(appointment_id: uuid.UUID, body: DoneIn, user: User = Depends(current_u
     if ap.status != "confirmada":
         raise HTTPException(409, "Solo se puede cerrar una cita confirmada.")
     r = db.get(ServiceRequest, ap.request_id)
-    F.finish(db, r, ap, user, body.final_cost)
+    F.finish(db, r, ap, user, body.final_cost, body.rating, body.rating_comment)
     return F.request_out(db, r)
+
+
+@router.post("/appointments/{appointment_id}/rate")
+def rate_appointment(appointment_id: uuid.UUID, body: RateIn, org: Organization = Depends(current_org), db: Session = Depends(get_db)):
+    """Califica la atencion (1 a 5 estrellas) cuando el servicio ya termino. Se puede corregir despues."""
+    ap = _appointment(db, org, appointment_id)
+    if ap.status != "realizada":
+        raise HTTPException(409, "Podrás calificar cuando termine el servicio.")
+    F.rate(ap, body.stars, body.comment)
+    db.commit()
+    return F.request_out(db, db.get(ServiceRequest, ap.request_id))
 
 
 def _appointment(db: Session, org: Organization, appointment_id: uuid.UUID) -> ServiceAppointment:

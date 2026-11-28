@@ -35,6 +35,6 @@ export default function Solicitud({ params }: { params: Promise<{ id: string }> 
   else if (r.status === "sin_respuesta") view = <SinRespuesta {...p} />;
   else if (r.status === "sin_cita") view = <FabricanteManual {...p} />;
   else if (r.status === "agendada" && r.appointment) view = r.appointment.kind === "fabricante" ? <CitaFabricante {...p} /> : <Visita {...p} />;
-  else view = <Cerrada r={r} />;
+  else view = <Cerrada r={r} act={act} busy={m.isPending} />;
   return <Shell title={title} subtitle={sub} back={ver && r.status === "buscando" ? undefined : "/servicios"} nav="servicios">{view}</Shell>;
 }

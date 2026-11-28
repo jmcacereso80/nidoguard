@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
+import { AgregarCalendario } from "@/components/servicios/AgregarCalendario";
 import { ConfirmLink } from "@/components/servicios/ConfirmLink";
+import { Stars } from "@/components/servicios/Stars";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { ErrorNote } from "@/components/Shell";
@@ -9,7 +11,7 @@ import {
   Actions, Callout, Chip, ConsentCheck, Hero, Hr, KV, Label, NoCobro, Note, Steps, Summary, TextLink, Timeline,
 } from "./ui";
 import {
-  NO_COBRO_FABRICANTE, Quote, ServiceRequest, Sort, TAG_LABEL, URGENCY_LABEL, callText, distanceLabel, hourRange, icsLink, invoiceLabel, longDay,
+  NO_COBRO_FABRICANTE, Quote, ServiceRequest, Sort, TAG_LABEL, URGENCY_LABEL, calendarEvent, callText, distanceLabel, hourRange, invoiceLabel, longDay,
   mapsLink, money, priceLabel, priceNote, progressOf, slotChip, sortQuotes, warrantyLabel, shortDay,
 } from "@/lib/servicios";
 
@@ -292,18 +294,18 @@ export function QuoteDetail({ q, scope, rid }: { q: Quote; scope: string | null;
 }
 
 // ---------------------------------------------------------------- Después de elegir
-const CALENDAR_TITLE = (r: ServiceRequest) => `${r.appointment?.kind === "fabricante" ? "Cita con el fabricante" : "Visita del técnico"}: ${r.equipment_label}`;
-
 function DoneBox({ r, act, busy }: P) {
-  const [open, setOpen] = useState(false); const [cost, setCost] = useState("");
+  const [open, setOpen] = useState(false); const [cost, setCost] = useState(""); const [stars, setStars] = useState(0);
   const ap = r.appointment!;
   if (ap.status !== "confirmada") return null;
   return open ? (
     <div className="g mt-1 rounded-[22px] p-3.5">
-      <label htmlFor="costo" className="text-[13px] font-bold">¿Cuánto pagaste? (opcional)</label>
+      <p className="text-center text-[14px] font-extrabold">¿Cómo te atendió {ap.technician_name ?? "el servicio"}?</p>
+      <div className="mt-1"><Stars value={stars} onChange={setStars} /></div>
+      <label htmlFor="costo" className="mt-3 block text-[13px] font-bold">¿Cuánto pagaste? (opcional)</label>
       <div className="mt-1.5 flex gap-2"><input id="costo" inputMode="decimal" placeholder="$0" value={cost} onChange={(e) => setCost(e.target.value)} className="field flex-1" />
-        <button type="button" disabled={busy} className="btn !px-4" onClick={() => act(`/appointments/${ap.id}/done`, { final_cost: cost ? Number(cost.replace(/[^0-9.]/g, "")) : null })}>Guardar</button></div>
-      <p className="mt-1.5 text-[12px] text-muted">Se guarda en el Historial de tu equipo. NidoGuard no procesa pagos.</p>
+        <button type="button" disabled={busy} className="btn !px-4" onClick={() => act(`/appointments/${ap.id}/done`, { final_cost: cost ? Number(cost.replace(/[^0-9.]/g, "")) : null, rating: stars || null })}>Guardar</button></div>
+      <p className="mt-1.5 text-[12px] text-muted">Se guarda en el Historial de tu equipo. La calificación es opcional. NidoGuard no procesa pagos.</p>
     </div>
   ) : <Btn ghost onClick={() => setOpen(true)}><Icon name="check" size={19} stroke={2.4} />Ya me atendieron</Btn>;
 }
@@ -351,10 +353,10 @@ export function Visita(p: P) {
       )}
       <Label>Seguimiento</Label>
       <Timeline rows={[{ state: "ok", text: "Visita pedida" }, { state: confirmada ? "ok" : "now", text: confirmada ? "Confirmada con el técnico" : "Esperando confirmación del técnico" }, { state: "wait", text: "Recordatorio el día anterior" }]} />
+      {confirmada && calendarEvent(r) && <div className="mt-4"><AgregarCalendario evento={calendarEvent(r)!} archivo="visita-nidoguard.ics" /></div>}
       <div className="mt-3"><NoCobro /></div>
       <Note>Tu dirección exacta se le dio al técnico cuando confirmó. Cuando termine el servicio, lo guardamos en el Historial de tu equipo.</Note>
       <Actions>
-        {confirmada && <a className="btn" download="visita-nidoguard.ics" href={icsLink(CALENDAR_TITLE(r), ap.starts_at!, ap.ends_at)}><Icon name="calendar" size={19} stroke={2.2} />Agregar al calendario</a>}
         <DoneBox {...p} />
         <Link href="/servicios" className="btn btn-ghost"><Icon name="list" size={19} />Ver mis solicitudes</Link>
         <ConfirmLink kind="cambiar" onConfirm={() => act(`/appointments/${ap.id}/cancel`)} danger={false}>Elegir otra cotización u horario</ConfirmLink>
@@ -377,10 +379,10 @@ export function CitaFabricante(p: P) {
         {ap.folio && <p className="mt-3 flex justify-between border-t border-navy/10 pt-3 text-[13.5px]"><span className="text-muted">Folio</span><b>{ap.folio}</b></p>}
       </div>
       {ap.bring.length > 0 && (<><Label>Lleva</Label><div className="g rounded-[26px] px-4 py-2.5">{ap.bring.map((t) => <p key={t} className="flex items-center gap-2.5 py-1.5 text-[14px]"><span className="text-[#235A3B]"><Icon name="check" size={16} stroke={2.6} /></span>{t}</p>)}</div></>)}
+      {calendarEvent(r) && <div className="mt-4"><AgregarCalendario evento={calendarEvent(r)!} archivo="cita-nidoguard.ics" /></div>}
       <div className="mt-3"><NoCobro text={NO_COBRO_FABRICANTE} /></div>
       <Note>Cuando termine el servicio, lo guardamos en el Historial de tu equipo.</Note>
       <Actions>
-        {ap.starts_at && <a className="btn" download="cita-nidoguard.ics" href={icsLink(CALENDAR_TITLE(r), ap.starts_at, ap.ends_at, lugar || null)}><Icon name="calendar" size={19} stroke={2.2} />Agregar al calendario</a>}
         {ap.center_address && <a className="btn btn-ghost" href={mapsLink(lugar)} target="_blank" rel="noreferrer"><Icon name="nav" size={19} />Cómo llegar</a>}
         <DoneBox {...p} />
         <ConfirmLink kind="cita" onConfirm={() => act(`/appointments/${ap.id}/cancel`)}>Cambiar o cancelar la cita</ConfirmLink>
@@ -431,7 +433,32 @@ export function FabricanteManual({ r, act, busy, err }: P) {
   );
 }
 
-export function Cerrada({ r }: { r: ServiceRequest }) {
+function Calificar({ r, act, busy }: { r: ServiceRequest; act: Act; busy: boolean }) {
+  const ap = r.appointment!;
+  const [stars, setStars] = useState(ap.my_rating ?? 0); const [txt, setTxt] = useState(ap.my_rating_comment ?? ""); const [edit, setEdit] = useState(false);
+  const quien = ap.technician_name ?? "la atención";
+  if (ap.my_rating && !edit) return (
+    <div className="g mt-3 rounded-[26px] p-4 text-center">
+      <p className="text-[14px] font-extrabold">Tu calificación</p>
+      <div className="mt-1.5"><Stars value={ap.my_rating} size={30} /></div>
+      {ap.my_rating_comment && <p className="mt-2 text-[13.5px] leading-relaxed text-muted">“{ap.my_rating_comment}”</p>}
+      <button type="button" onClick={() => setEdit(true)} className="mx-auto mt-1 min-h-11 px-3 text-[13.5px] font-extrabold text-navy">Cambiar mi calificación</button>
+    </div>
+  );
+  return (
+    <div className="g mt-3 rounded-[26px] p-4">
+      <p className="text-center text-[15px] font-extrabold">¿Cómo te atendió {quien}?</p>
+      <div className="mt-2"><Stars value={stars} onChange={setStars} /></div>
+      <label htmlFor="coment" className="mt-3 block text-[13px] font-bold">Cuéntanos más (opcional)</label>
+      <textarea id="coment" value={txt} maxLength={300} rows={2} onChange={(e) => setTxt(e.target.value)} placeholder="Ej. Llegó puntual y explicó todo." className="field mt-1.5 w-full resize-none" />
+      <button type="button" className="btn mt-3 w-full" disabled={busy || stars < 1} onClick={async () => { await act(`/appointments/${ap.id}/rate`, { stars, comment: txt.trim() || null }); setEdit(false); }}>
+        <Icon name="check" size={19} stroke={2.4} />Enviar calificación</button>
+      <p className="mt-2 text-center text-[12px] text-muted">Solo la ves tú. Nos ayuda a recomendar mejor.</p>
+    </div>
+  );
+}
+
+export function Cerrada({ r, act, busy }: { r: ServiceRequest; act?: Act; busy?: boolean }) {
   return (
     <div>
       <Summary title={r.scope_text ?? ""} sub={r.equipment_label} />
@@ -439,6 +466,7 @@ export function Cerrada({ r }: { r: ServiceRequest }) {
         <p className="mt-3 text-[18px] font-extrabold">{r.status === "terminada" ? "Servicio terminado" : "Solicitud cancelada"}</p>
         <p className="mt-1 text-[13.5px] text-muted">{r.status === "terminada" ? "Quedó guardado en el Historial de tu equipo." : "No se llamó a nadie más."}</p>
         {r.appointment?.final_cost != null && <p className="mt-2 text-[14px] font-bold">Pagaste {money(r.appointment.final_cost)}</p>}</div>
+      {r.status === "terminada" && r.appointment && act && <Calificar r={r} act={act} busy={!!busy} />}
       <Actions><Link href="/servicios" className="btn btn-ghost">Ver mis solicitudes</Link></Actions>
     </div>
   );

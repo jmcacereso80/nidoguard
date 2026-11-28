@@ -48,9 +48,36 @@ test("textos cortos", () => {
   assert.equal(invoiceLabel(true), "Da factura"); assert.equal(invoiceLabel(null), "No dijo si da factura");
 });
 
-import { icsLink, mapsLink } from "./servicios.ts";
+import { calendarEvent, googleCalLink, icsLink, mapsLink, outlookCalLink } from "./servicios.ts";
 test("archivo de calendario y mapa", () => {
   const ics = decodeURIComponent(icsLink("Visita, técnico", "2026-11-28T22:00:00Z", "2026-11-29T00:00:00Z", "Av. Ejemplo 1").replace("data:text/calendar;charset=utf-8,", ""));
   assert.match(ics, /DTSTART:20261128T220000Z/); assert.match(ics, /DTEND:20261129T000000Z/); assert.match(ics, /SUMMARY:Visita\\, técnico/); assert.match(ics, /LOCATION:Av. Ejemplo 1/);
   assert.equal(mapsLink("Av. Juárez 1, CDMX"), "https://www.google.com/maps/search/?api=1&query=Av.%20Ju%C3%A1rez%201%2C%20CDMX");
+});
+
+const visita = (over: Record<string, unknown> = {}) => ({
+  id: "r1", equipment_label: "Refrigerador", scope_text: "Revisar", address_text: "Gabriel Mancera 100, Del Valle, CDMX",
+  appointment: { id: "a1", kind: "tecnico", status: "confirmada", starts_at: "2026-11-30T16:00:00Z", ends_at: "2026-11-30T18:00:00Z", technician_name: "Luis", technician_phone: "+525512345678",
+    access_notes: "Caseta: registrar INE", bring: [], center_name: null, center_address: null, folio: null,
+    agreed: { label: "Técnico 1", scope: "Revisar y reparar el refrigerador", price_min: 700, price_max: 700, price_type: "fijo", visit_fee: 0, warranty_days: 30, invoice: true, rating: 4.5, reviews: 10, slots: [] }, ...over },
+}) as never;
+test("el evento de calendario lleva la información de la visita", () => {
+  const e = calendarEvent(visita())!;
+  assert.equal(e.title, "Visita del técnico: Refrigerador"); assert.equal(e.location, "Gabriel Mancera 100, Del Valle, CDMX");
+  for (const t of ["Técnico: Luis", "Teléfono del técnico: +525512345678", "Acceso: Caseta: registrar INE", "Garantía: 30 días", "Revisar y reparar el refrigerador", "700"]) assert.ok(e.details.includes(t), t);
+  assert.equal(calendarEvent(visita({ status: "cancelada" })), null); assert.equal(calendarEvent(visita({ starts_at: null })), null);
+  const ics = decodeURIComponent(icsLink(e.title, e.start, e.end, e.location, e.details).replace("data:text/calendar;charset=utf-8,", ""));
+  assert.match(ics, /DESCRIPTION:Equipo: Refrigerador\\n/); assert.match(ics, /BEGIN:VALARM/);
+});
+test("enlaces de Google y Outlook", () => {
+  const e = calendarEvent(visita())!;
+  const g = new URL(googleCalLink(e)); assert.equal(g.host, "calendar.google.com"); assert.equal(g.searchParams.get("dates"), "20261130T160000Z/20261130T180000Z");
+  assert.equal(g.searchParams.get("text"), e.title); assert.equal(g.searchParams.get("location"), e.location); assert.ok(g.searchParams.get("details")!.includes("Técnico: Luis"));
+  const o = new URL(outlookCalLink(e)); assert.equal(o.host, "outlook.live.com"); assert.equal(o.searchParams.get("startdt"), "2026-11-30T16:00:00.000Z"); assert.equal(o.searchParams.get("subject"), e.title);
+  assert.equal(new URL(outlookCalLink(e, true)).host, "outlook.office.com");
+});
+test("cita con el fabricante: lugar, folio y qué llevar", () => {
+  const e = calendarEvent(visita({ kind: "fabricante", center_name: "Centro Samsung", center_address: "Insurgentes 1", folio: "F-123", bring: ["Ticket de compra"], technician_name: null, technician_phone: null, access_notes: null, agreed: null }))!;
+  assert.equal(e.title, "Cita con el fabricante: Refrigerador"); assert.equal(e.location, "Centro Samsung, Insurgentes 1");
+  assert.ok(e.details.includes("Folio: F-123") && e.details.includes("Lleva: Ticket de compra"));
 });

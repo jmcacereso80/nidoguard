@@ -18,7 +18,7 @@ export type Appointment = {
   id: string; kind: "tecnico" | "fabricante"; status: "por_confirmar" | "confirmada" | "por_reprogramar" | "cancelada" | "realizada";
   location_type: "domicilio" | "centro"; center_name: string | null; center_address: string | null; folio: string | null; bring: string[];
   starts_at: string | null; ends_at: string | null; requested_slot: Slot | null; registered_by_user: boolean; final_cost: number | null;
-  technician_name: string | null; technician_phone: string | null; access_notes: string | null; contact_shared: boolean; proposed_slot: { date: string; start_hour: number | null; end_hour: number | null } | null; proposal_round: number;
+  technician_name: string | null; technician_phone: string | null; access_notes: string | null; my_rating: number | null; my_rating_comment: string | null; contact_shared: boolean; proposed_slot: { date: string; start_hour: number | null; end_hour: number | null } | null; proposal_round: number;
   agreed: { label: string; scope: string | null; price_min: number | null; price_max: number | null; price_type: PriceType | null; visit_fee: number | null;
             warranty_days: number | null; invoice: boolean | null; rating: number | null; reviews: number | null; slots: Slot[] } | null;
 };
@@ -26,7 +26,7 @@ export type ServiceRequest = {
   id: string; origin: "tarea" | "libre"; route: Route; status: ReqStatus; equipment_label: string | null; asset_id: string | null;
   care_task_id: string | null; symptom: string | null; scope_text: string | null; specialty: string | null; urgency: Urgency;
   safety: Safety | null; warranty: { ends_on: string; days_left: number; provider: string | null } | null;
-  resumes_at: string | null; zone: string | null; property_id: string | null; address_name: string | null; address_complete: boolean; radius_km: number; target_quotes: number; created_at: string; quote_count: number;
+  resumes_at: string | null; zone: string | null; property_id: string | null; address_name: string | null; address_text: string | null; address_complete: boolean; radius_km: number; target_quotes: number; created_at: string; quote_count: number;
   appointment: Appointment | null; quotes?: Quote[]; calls?: CallRow[];
   manufacturer: { line: { phone: string; hours: string | null; requires_holder: boolean } | null; brand: string | null; model: string | null; serial: string | null; holder_name: string | null; phone: string | null; address: string | null; warranty_ends_on: string | null } | null;
 };
@@ -126,13 +126,64 @@ export function callText(c: CallRow): string {
   }
 }
 
-/** Archivo de calendario (.ics) como enlace de datos, para "Agregar al calendario". */
-export function icsLink(title: string, startISO: string, endISO: string | null, place?: string | null): string {
-  const f = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-  const esc = (t: string) => t.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
-  const end = endISO ?? new Date(new Date(startISO).getTime() + 2 * 3600_000).toISOString();
+/** Lo que se agrega al calendario: la visita o la cita con toda su información. */
+export type CalEvent = { title: string; start: string; end: string; location: string | null; details: string };
+
+const calStamp = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+const calEnd = (startISO: string, endISO: string | null) => endISO ?? new Date(new Date(startISO).getTime() + 2 * 3600_000).toISOString();
+
+/** Archivo de calendario (.ics) como enlace de datos: lo abren Calendario de Apple, Outlook de escritorio y la mayoría de las apps. */
+export function icsLink(title: string, startISO: string, endISO: string | null, place?: string | null, details?: string | null): string {
+  const f = calStamp;
+  const esc = (t: string) => t.replace(/\\/g, "\\\\").replace(/([,;])/g, "\\$1").replace(/\r?\n/g, "\\n");
+  const end = calEnd(startISO, endISO);
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NidoGuard//ES", "BEGIN:VEVENT", `UID:${f(startISO)}-${esc(title).length}@nidoguard.com`,
-    `DTSTAMP:${f(new Date().toISOString())}`, `DTSTART:${f(startISO)}`, `DTEND:${f(end)}`, `SUMMARY:${esc(title)}`, ...(place ? [`LOCATION:${esc(place)}`] : []), "END:VEVENT", "END:VCALENDAR"];
+    `DTSTAMP:${f(new Date().toISOString())}`, `DTSTART:${f(startISO)}`, `DTEND:${f(end)}`, `SUMMARY:${esc(title)}`,
+    ...(place ? [`LOCATION:${esc(place)}`] : []), ...(details ? [`DESCRIPTION:${esc(details)}`] : []),
+    "BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY", `DESCRIPTION:${esc(title)}`, "END:VALARM", "END:VEVENT", "END:VCALENDAR"];
   return `data:text/calendar;charset=utf-8,${encodeURIComponent(lines.join("\r\n"))}`;
+}
+export const icsFor = (e: CalEvent) => icsLink(e.title, e.start, e.end, e.location, e.details);
+
+/** Google Calendar: abre el formulario ya llenado para que la persona solo toque Guardar. */
+export function googleCalLink(e: CalEvent): string {
+  const q = new URLSearchParams({ action: "TEMPLATE", text: e.title, dates: `${calStamp(e.start)}/${calStamp(e.end)}`, details: e.details });
+  if (e.location) q.set("location", e.location);
+  return `https://calendar.google.com/calendar/render?${q.toString()}`;
+}
+
+/** Outlook en la web: personal (outlook.live.com) o del trabajo / Microsoft 365 (outlook.office.com). */
+export function outlookCalLink(e: CalEvent, trabajo = false): string {
+  const q = new URLSearchParams({ path: "/calendar/action/compose", rrv: "addevent", subject: e.title, startdt: new Date(e.start).toISOString(), enddt: new Date(e.end).toISOString(), body: e.details });
+  if (e.location) q.set("location", e.location);
+  return `https://outlook.${trabajo ? "office" : "live"}.com/calendar/0/deeplink/compose?${q.toString()}`;
+}
+
+/** Evento de calendario de la visita (a domicilio) o de la cita (con el fabricante), con la información útil para ese día. */
+export function calendarEvent(r: ServiceRequest): CalEvent | null {
+  const ap = r.appointment;
+  if (!ap || !ap.starts_at || ap.status === "cancelada") return null;
+  const eq = r.equipment_label ?? "equipo";
+  const L: string[] = [];
+  if (ap.kind === "fabricante") {
+    L.push(`Equipo: ${eq}`);
+    if (ap.folio) L.push(`Folio: ${ap.folio}`);
+    if (ap.center_name || ap.center_address) L.push(`Lugar: ${[ap.center_name, ap.center_address].filter(Boolean).join(", ")}`);
+    if (ap.bring.length) L.push(`Lleva: ${ap.bring.join(", ")}`);
+  } else {
+    const a = ap.agreed;
+    L.push(`Equipo: ${eq}`);
+    const trabajo = a?.scope ?? r.scope_text; if (trabajo) L.push(`Trabajo acordado: ${trabajo}`);
+    if (ap.technician_name) L.push(`Técnico: ${ap.technician_name}`);
+    if (ap.technician_phone) L.push(`Teléfono del técnico: ${ap.technician_phone}`);
+    if (a && a.price_min != null) L.push(`Precio acordado por teléfono: ${priceLabel({ price_min: a.price_min, price_max: a.price_max, price_type: a.price_type })}${a.visit_fee ? `, más ${money(a.visit_fee)} de visita` : ""}`);
+    if (a?.warranty_days) L.push(`Garantía: ${a.warranty_days} días`);
+    if (ap.access_notes) L.push(`Acceso: ${ap.access_notes}`);
+    L.push("El precio puede cambiar cuando el técnico revise tu equipo. NidoGuard no cobra por el servicio.");
+  }
+  return {
+    title: `${ap.kind === "fabricante" ? "Cita con el fabricante" : "Visita del técnico"}: ${eq}`, start: ap.starts_at, end: calEnd(ap.starts_at, ap.ends_at),
+    location: ap.kind === "fabricante" ? ([ap.center_name, ap.center_address].filter(Boolean).join(", ") || null) : (r.address_text ?? null), details: L.join("\n"),
+  };
 }
 export const mapsLink = (address: string) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;

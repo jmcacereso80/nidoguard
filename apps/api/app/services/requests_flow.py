@@ -379,8 +379,16 @@ def respond(db: Session, req: ServiceRequest, ap: ServiceAppointment, accept: bo
     call_results._decline(db, req, ap)
 
 
-def finish(db: Session, req: ServiceRequest, ap: ServiceAppointment, user, final_cost: float | None) -> None:
+def rate(ap: ServiceAppointment, stars: int, comment: str | None) -> None:
+    ap.service_rating = stars
+    ap.rating_comment = (comment or "").strip()[:300] or None
+    ap.rated_at = utcnow()
+
+
+def finish(db: Session, req: ServiceRequest, ap: ServiceAppointment, user, final_cost: float | None, rating: int | None = None, comment: str | None = None) -> None:
     ap.status, ap.final_cost = "realizada", final_cost
+    if rating:
+        rate(ap, rating, comment)
     req.status = "terminada"
     if req.asset_id:
         db.add(AssetEvent(asset_id=req.asset_id, organization_id=req.organization_id, type="servicio_realizado", actor_id=user.id,
@@ -417,7 +425,8 @@ def appointment_out(db: Session, ap: ServiceAppointment) -> dict:
            "center_name": ap.center_name, "center_address": ap.center_address, "folio": ap.folio, "bring": ap.bring,
            "starts_at": ap.starts_at.isoformat() if ap.starts_at else None, "ends_at": ap.ends_at.isoformat() if ap.ends_at else None,
            "requested_slot": ap.requested_slot, "proposed_slot": ap.proposed_slot, "proposal_round": ap.proposal_round, "registered_by_user": ap.registered_by_user, "contact_shared": ap.share_phone, "final_cost": ap.final_cost,
-           "technician_name": None, "technician_phone": None, "access_notes": ap.access_notes, "agreed": None}
+           "technician_name": None, "technician_phone": None, "access_notes": ap.access_notes,
+           "my_rating": ap.service_rating, "my_rating_comment": ap.rating_comment, "agreed": None}
     if ap.quote_id:
         q = db.get(ServiceQuote, ap.quote_id)
         out["agreed"] = {"label": q.label, "scope": q.scope_quoted, "price_min": q.price_min, "price_max": q.price_max,
@@ -465,7 +474,7 @@ def request_out(db: Session, req: ServiceRequest, detail: bool = True) -> dict:
         "safety": safety.alert_out(req.safety_alert, req.safety_acknowledged), "warranty": warranty,
         "zone": ", ".join(x for x in [req.zone_colony or (prop.colony if prop else None), req.zone_city or (prop.city if prop else None)] if x) or None,
         "address_complete": bool(prop and prop.lat is not None), "property_id": str(prop.id) if prop else None,
-        "address_name": prop.name if prop else None, "radius_km": req.radius_km, "target_quotes": req.target_quotes,
+        "address_name": prop.name if prop else None, "address_text": prop.address if prop else None, "radius_km": req.radius_km, "target_quotes": req.target_quotes,
         "created_at": req.created_at.isoformat(), "quote_count": len(quotes),
         "resumes_at": (lambda t: t.isoformat() if t else None)(call_results.resumes_at(db, req, get_settings().voice)),
         "appointment": appointment_out(db, ap) if ap else None,

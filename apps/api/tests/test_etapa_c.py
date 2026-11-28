@@ -206,6 +206,23 @@ def test_cancelar_la_visita_cancela_la_llamada_de_confirmacion_en_cola(real, db,
     assert c.post(f"/service-requests/{r['id']}/cancel").status_code == 200  # y también puede cancelar todo, con cotizaciones listas
 
 
+def test_la_persona_califica_la_atencion_con_estrellas(real, db):
+    c, tokens, enviados = real
+    rid, s = agendada(c, db, tokens, enviados, Ext(appt=AppointmentDraft(outcome="confirma", date=dia(3), start_hour=10, end_hour=12, person_name="Luis")))
+    analizada(c, len(enviados))
+    ap = c.get(f"/service-requests/{rid}").json()["appointment"]
+    assert c.post(f"/appointments/{ap['id']}/rate", json={"stars": 5}).status_code == 409  # todavía no termina el servicio
+    assert c.post(f"/appointments/{ap['id']}/done", json={"final_cost": 700, "rating": 6}).status_code == 422  # 1 a 5
+    out = c.post(f"/appointments/{ap['id']}/done", json={"final_cost": 700, "rating": 4}).json()
+    assert out["status"] == "terminada" and out["appointment"]["my_rating"] == 4 and out["appointment"]["my_rating_comment"] is None
+    assert c.post(f"/appointments/{ap['id']}/rate", json={"stars": 0}).status_code == 422
+    out = c.post(f"/appointments/{ap['id']}/rate", json={"stars": 5, "comment": "  Llegó puntual y explicó todo.  "}).json()
+    assert out["appointment"]["my_rating"] == 5 and out["appointment"]["my_rating_comment"] == "Llegó puntual y explicó todo."
+    row = db.get(ServiceAppointment, uuid.UUID(ap["id"]))
+    db.refresh(row)
+    assert row.service_rating == 5 and row.rated_at is not None
+
+
 def test_cancelar_una_visita_confirmada_le_avisa_al_tecnico_por_telefono(real, db):
     c, tokens, enviados = real
     d = dia(3)

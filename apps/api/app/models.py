@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime
 from sqlalchemy import (
-    Date, DateTime, Enum, ForeignKey, Index, Integer, String, Text, Boolean, Float, func, text,
+    Date, DateTime, Enum, ForeignKey, Index, Integer, SmallInteger, String, Text, Boolean, Float, func, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -469,6 +469,9 @@ class ServiceAppointment(Base):
     proposed_slot: Mapped[dict | None] = mapped_column(JSONB)  # {date, start_hour, end_hour}
     reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     share_phone: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    service_rating: Mapped[int | None] = mapped_column(SmallInteger)  # 1 a 5: como califico la persona la atencion
+    rating_comment: Mapped[str | None] = mapped_column(String(300))
+    rated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     access_notes: Mapped[str | None] = mapped_column(String(300))  # como se entra (caseta, registro, INE...); lo escribe la persona
     visit_person: Mapped[str | None] = mapped_column(String(120))  # nombre de pila de quien ira a la visita (lo dice el tecnico al confirmar)
     address_shared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

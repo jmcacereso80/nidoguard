@@ -154,7 +154,7 @@ def test_visita_realizada_queda_en_el_historial(caso, db):
     assert ap["status"] == "confirmada"
     out = c.post(f"/appointments/{ap['id']}/done", json={"final_cost": 580}).json()
     assert out["status"] == "terminada" and out["appointment"]["final_cost"] == 580
-    ev = db.scalars(select(AssetEvent).where(AssetEvent.type == "servicio_realizado")).all()
+    ev = db.scalars(select(AssetEvent).where(AssetEvent.type == "servicio_realizado", AssetEvent.asset_id == uuid.UUID(r["asset_id"]))).all()
     assert len(ev) == 1 and ev[0].payload["costo_final"] == 580 and ev[0].payload["con"] == "tecnico"
 
 
